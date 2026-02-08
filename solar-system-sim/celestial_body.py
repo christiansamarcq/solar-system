@@ -173,6 +173,9 @@ class CelestialBody:
             self.node.setLightOff()
             # Boost brightness
             self.node.setColorScale(1.5, 1.5, 1.2, 1)  # Extra bright yellow-white
+        else:
+            # For planets/moons, increase base brightness to make them visible against black space
+            self.node.setColorScale(2.0, 2.0, 2.0, 1)
 
         # Set initial position
         self.update_visual_position()

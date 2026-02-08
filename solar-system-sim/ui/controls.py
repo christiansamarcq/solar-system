@@ -20,10 +20,10 @@ class ControlPanel:
         self.app = app
         self.visible = True
 
-        # Create background panel (expanded to fit size slider)
+        # Create background panel (expanded to fit size slider and new buttons)
         self.panel = DirectFrame(
             frameColor=(0.1, 0.1, 0.1, 0.8),
-            frameSize=(-0.3, 0.3, -0.5, 0.5),
+            frameSize=(-0.3, 0.3, -0.7, 0.5),
             pos=(0.85, 0, 0)
         )
 
@@ -77,11 +77,31 @@ class ControlPanel:
             scale=0.5
         )
 
+        # Sun scale rate slider
+        self.sun_rate_label = DirectLabel(
+            text="Sun Growth: 0.5%",
+            scale=0.045,
+            pos=(0, 0, 0.01),
+            parent=self.panel,
+            text_fg=(1, 1, 1, 1),
+            frameColor=(0, 0, 0, 0)
+        )
+
+        self.sun_rate_slider = DirectSlider(
+            range=(0.0, 5.0),
+            value=0.5,
+            pageSize=0.1,
+            command=self.on_sun_rate_changed,
+            pos=(0, 0, -0.06),
+            parent=self.panel,
+            scale=0.5
+        )
+
         # Physics mode toggle button
         self.physics_button = DirectButton(
             text="Mode: SIMPLE",
             scale=0.055,
-            pos=(0, 0, -0.02),
+            pos=(0, 0, -0.13),
             parent=self.panel,
             command=self.on_physics_toggle,
             text_fg=(1, 1, 1, 1),
@@ -92,7 +112,7 @@ class ControlPanel:
         self.trails_button = DirectButton(
             text="Trails: ON",
             scale=0.055,
-            pos=(0, 0, -0.12),
+            pos=(0, 0, -0.23),
             parent=self.panel,
             command=self.on_trails_toggle,
             text_fg=(1, 1, 1, 1),
@@ -103,7 +123,7 @@ class ControlPanel:
         self.clear_button = DirectButton(
             text="Clear Trails",
             scale=0.055,
-            pos=(0, 0, -0.22),
+            pos=(0, 0, -0.33),
             parent=self.panel,
             command=self.on_clear_trails,
             text_fg=(1, 1, 1, 1),
@@ -114,18 +134,40 @@ class ControlPanel:
         self.pause_button = DirectButton(
             text="Pause",
             scale=0.055,
-            pos=(0, 0, -0.32),
+            pos=(0, 0, -0.43),
             parent=self.panel,
             command=self.on_pause_toggle,
             text_fg=(1, 1, 1, 1),
             frameColor=(0.7, 0.3, 0.3, 1)
         )
 
-        # Hide panel button (small)
+        # Collision toggle button
+        self.collision_button = DirectButton(
+            text="Collisions: OFF",
+            scale=0.055,
+            pos=(0, 0, -0.51),
+            parent=self.panel,
+            command=self.on_collision_toggle,
+            text_fg=(1, 1, 1, 1),
+            frameColor=(0.8, 0.4, 0.2, 1)
+        )
+
+        # Reset button
+        self.reset_button = DirectButton(
+            text="Reset Simulation",
+            scale=0.055,
+            pos=(0, 0, -0.59),
+            parent=self.panel,
+            command=self.on_reset,
+            text_fg=(1, 1, 1, 1),
+            frameColor=(0.5, 0.3, 0.7, 1)
+        )
+
+        # Hide panel button (small, moved to bottom)
         self.hide_button = DirectButton(
             text="Hide UI",
             scale=0.04,
-            pos=(0, 0, -0.42),
+            pos=(0, 0, -0.65),
             parent=self.panel,
             command=self.toggle_visibility,
             text_fg=(0.7, 0.7, 0.7, 1),
@@ -143,6 +185,14 @@ class ControlPanel:
         value = self.size_slider['value']
         self.app.update_body_sizes(value)
         self.size_label['text'] = f"Planet Size: {value:.0f}x"
+
+    def on_sun_rate_changed(self):
+        """Handle sun growth rate slider change"""
+        value = self.sun_rate_slider['value']
+        self.app.sun_scale_rate = value / 100.0  # Convert percentage to decimal
+        self.sun_rate_label['text'] = f"Sun Growth: {value:.1f}%"
+        # Re-apply body sizes with new sun rate
+        self.app.update_body_sizes(self.app.size_scale)
 
     def on_physics_toggle(self):
         """Toggle physics mode"""
@@ -175,6 +225,22 @@ class ControlPanel:
             self.pause_button['text'] = "Resume"
         else:
             self.pause_button['text'] = "Pause"
+
+    def on_collision_toggle(self):
+        """Toggle collision detection"""
+        self.app.toggle_collisions()
+
+        # Update button text
+        if self.app.collisions_enabled:
+            self.collision_button['text'] = "Collisions: ON"
+            self.collision_button['frameColor'] = (0.8, 0.2, 0.2, 1)  # Red when ON
+        else:
+            self.collision_button['text'] = "Collisions: OFF"
+            self.collision_button['frameColor'] = (0.8, 0.4, 0.2, 1)  # Orange when OFF
+
+    def on_reset(self):
+        """Reset the simulation"""
+        self.app.reset_simulation()
 
     def toggle_visibility(self):
         """Show/hide the control panel"""

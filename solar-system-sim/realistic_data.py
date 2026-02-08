@@ -135,6 +135,19 @@ PLANETS = {
         'arg_periapsis': math.radians(273.187),
         'color': (0.3, 0.4, 0.9),
         'texture': 'textures/neptune.jpg'
+    },
+    'Pluto': {
+        'name': 'Pluto',
+        'mass': 0.01303e24,  # kg (dwarf planet)
+        'radius': 1188.3 * 1e3,  # meters
+        'semi_major_axis': 5906.4e9,  # meters (39.48 AU)
+        'eccentricity': 0.2488,  # highly eccentric orbit
+        'inclination': math.radians(17.16),  # highly inclined
+        'orbital_period': 90560,  # days (~248 years)
+        'rotation_period': -6.387,  # days (retrograde, ~6.4 days)
+        'arg_periapsis': math.radians(113.834),
+        'color': (0.8, 0.7, 0.6),  # brownish color
+        'texture': 'textures/moon.jpg'  # using generic moon texture
     }
 }
 

@@ -89,7 +89,7 @@ class TrailRenderer:
                 self.color[0],
                 self.color[1],
                 self.color[2],
-                fade * 0.7  # Max alpha of 0.7
+                fade  # Full opacity for maximum visibility
             )
 
             # Draw line segment
@@ -101,6 +101,10 @@ class TrailRenderer:
 
         # Create node and attach to scene
         self.line_node = render.attachNewNode(self.line_segs.create())
+        # Make trails unaffected by lighting for maximum brightness
+        self.line_node.setLightOff()
+        # Increase brightness with color scale for better visibility
+        self.line_node.setColorScale(1.5, 1.5, 1.5, 1)
 
     def clear(self):
         """Clear all trail points"""
