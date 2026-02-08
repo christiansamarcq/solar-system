@@ -523,8 +523,8 @@ class RealisticSolarSystemApp(ShowBase):
             self.control_panel.time_label['text'] = "Time Scale: 1.0x"
             self.control_panel.size_slider['value'] = 1.0
             self.control_panel.size_label['text'] = "Planet Size: 1.0x"
-            self.control_panel.sun_rate_slider['value'] = 0.5
-            self.control_panel.sun_rate_label['text'] = "Sun Growth: 0.5%"
+            self.control_panel.sun_rate_slider['value'] = 1.0
+            self.control_panel.sun_rate_label['text'] = "Sun Size: 1.0x"
             self.control_panel.physics_button['text'] = "Mode: SIMPLE"
             self.control_panel.pause_button['text'] = "Pause"
             self.control_panel.collision_button['text'] = "Collisions: OFF"
@@ -663,21 +663,15 @@ class RealisticSolarSystemApp(ShowBase):
         self.size_scale = new_scale
 
         for body in self.bodies:
-            if body.node:
-                if body == self.sun:
-                    # Scale the sun at user-defined rate
-                    sun_scale = 1.0 + (new_scale - 1.0) * self.sun_scale_rate
-                    body.node.setScale(sun_scale)
-                else:
-                    # Scale planets and moons
-                    body.node.setScale(new_scale)
+            if body == self.sun or not body.node:
+                continue
+            # Scale planets and moons
+            body.node.setScale(new_scale)
 
-                    # Make planets brighter as they get bigger (easier to see)
-                    if not body.is_emissive:
-                        # Increase color intensity for visibility
-                        # Start at 2.0 brightness and scale up to 4.0 for very large sizes
-                        brightness = min(4.0, 2.0 + (new_scale / 2500.0))
-                        body.node.setColorScale(brightness, brightness, brightness, 1)
+            # Make planets brighter as they get bigger (easier to see)
+            if not body.is_emissive:
+                brightness = min(4.0, 2.0 + (new_scale / 2500.0))
+                body.node.setColorScale(brightness, brightness, brightness, 1)
 
         print(f"Planet size scale: {new_scale:.1f}x ({'realistic' if new_scale == 1.0 else 'exaggerated'})")
 

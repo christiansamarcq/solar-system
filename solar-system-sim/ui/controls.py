@@ -77,9 +77,9 @@ class ControlPanel:
             scale=0.5
         )
 
-        # Sun scale rate slider
+        # Sun size slider
         self.sun_rate_label = DirectLabel(
-            text="Sun Growth: 0.5%",
+            text="Sun Size: 1.0x",
             scale=0.045,
             pos=(0, 0, 0.01),
             parent=self.panel,
@@ -88,9 +88,9 @@ class ControlPanel:
         )
 
         self.sun_rate_slider = DirectSlider(
-            range=(0.0, 5.0),
-            value=0.5,
-            pageSize=0.1,
+            range=(0.1, 10.0),
+            value=1.0,
+            pageSize=0.5,
             command=self.on_sun_rate_changed,
             pos=(0, 0, -0.06),
             parent=self.panel,
@@ -187,12 +187,11 @@ class ControlPanel:
         self.size_label['text'] = f"Planet Size: {value:.0f}x"
 
     def on_sun_rate_changed(self):
-        """Handle sun growth rate slider change"""
+        """Handle sun growth slider - scales the sun independently"""
         value = self.sun_rate_slider['value']
-        self.app.sun_scale_rate = value / 100.0  # Convert percentage to decimal
-        self.sun_rate_label['text'] = f"Sun Growth: {value:.1f}%"
-        # Re-apply body sizes with new sun rate
-        self.app.update_body_sizes(self.app.size_scale)
+        self.sun_rate_label['text'] = f"Sun Size: {value:.1f}x"
+        if self.app.sun and self.app.sun.node:
+            self.app.sun.node.setScale(max(0.1, value))
 
     def on_physics_toggle(self):
         """Toggle physics mode"""
