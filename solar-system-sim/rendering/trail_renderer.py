@@ -36,7 +36,8 @@ class TrailRenderer:
         # Control
         self.enabled = True
         self.update_counter = 0
-        self.update_interval = 1  # Update every frame for smooth trails
+        self.update_interval = 3  # Add point every 3 frames to reduce geometry rebuilds
+        self._dirty = False
 
     def update(self, render):
         """
@@ -50,16 +51,18 @@ class TrailRenderer:
 
         self.update_counter += 1
 
-        # Only update every N frames to reduce overhead
+        # Only add a new point every N frames
         if self.update_counter % self.update_interval != 0:
             return
 
         # Add current position to trail
         self.positions.append(self.body.position.copy())
+        self._dirty = True
 
-        # Rebuild line segments
-        if len(self.positions) > 1:
+        # Only rebuild geometry when new points were added
+        if self._dirty and len(self.positions) > 1:
             self._rebuild_trail(render)
+            self._dirty = False
 
     def _rebuild_trail(self, render):
         """

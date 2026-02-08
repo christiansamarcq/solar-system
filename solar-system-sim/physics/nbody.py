@@ -20,6 +20,9 @@ G = rd.G  # 6.67430e-11 m^3 kg^-1 s^-2
 # Distance conversion: positions are in scaled units, need to convert to meters for physics
 METERS_PER_UNIT = 1.0 / rd.DISTANCE_SCALE  # 1e9 meters per unit
 
+# Minimum distance to prevent gravitational singularity
+MIN_DISTANCE = 0.1
+
 
 def calculate_gravitational_force(body1_pos, body1_mass, body2_pos, body2_mass):
     """
@@ -43,8 +46,8 @@ def calculate_gravitational_force(body1_pos, body1_mass, body2_pos, body2_mass):
     r = np.linalg.norm(r_vec)
 
     # Avoid division by zero
-    if r < 0.1:  # Minimum distance to prevent singularity
-        r = 0.1
+    if r < MIN_DISTANCE:
+        r = MIN_DISTANCE
 
     # Direction (unit vector)
     r_hat = r_vec / r

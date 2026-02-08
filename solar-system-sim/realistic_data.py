@@ -13,7 +13,6 @@ import math
 # Real solar system is too large to visualize at 1:1 scale
 DISTANCE_SCALE = 1.0 / 1e9  # 1 unit = 1 billion meters (1 Gm)
 RADIUS_SCALE = 1.0 / 1e9  # 1 unit = 1 billion meters (REALISTIC SCALE - planets will be tiny!)
-TIME_SCALE = 1.0  # 1 simulation second = 1 real second (will be adjusted by user)
 
 # Gravitational constant
 G = 6.67430e-11  # m^3 kg^-1 s^-2
@@ -241,18 +240,3 @@ def get_scaled_distance(distance_m):
 def get_orbital_period_seconds(period_days):
     """Convert orbital period from days to seconds"""
     return period_days * 24.0 * 3600.0
-
-
-def calculate_orbital_velocity(semi_major_axis, central_mass):
-    """
-    Calculate approximate circular orbital velocity
-    v = sqrt(G * M / r)
-
-    Args:
-        semi_major_axis: Distance from central body (meters)
-        central_mass: Mass of central body (kg)
-
-    Returns:
-        Orbital velocity in m/s
-    """
-    return math.sqrt(G * central_mass / semi_major_axis)

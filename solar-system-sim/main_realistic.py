@@ -4,7 +4,7 @@ Uses real planetary masses, radii, orbital parameters, and textures
 """
 
 from direct.showbase.ShowBase import ShowBase
-from panda3d.core import AmbientLight, DirectionalLight, PointLight, Texture
+from panda3d.core import AmbientLight, PointLight, Texture
 from panda3d.core import LVector3, GeomNode, CardMaker
 from direct.gui.DirectGui import DirectOptionMenu
 import numpy as np
@@ -351,13 +351,13 @@ class RealisticSolarSystemApp(ShowBase):
     def setup_trails(self):
         """Initialize trail rendering for all bodies"""
         self.trail_manager = TrailManager(self.render)
+        self._add_body_trails()
 
-        # Add trails for planets (not sun) - all white for visibility on black background
+    def _add_body_trails(self):
+        """Add trail tracking for all non-sun bodies"""
         for body in self.bodies:
             if body != self.sun:
-                # Longer trails for outer planets
                 max_points = 2000 if body.name in ['Jupiter', 'Saturn', 'Uranus', 'Neptune'] else 1000
-                # White, bright trails for all bodies with increased thickness
                 self.trail_manager.add_trail(body, max_points=max_points, color=(1, 1, 1), thickness=4.0)
 
     def setup_controls(self):
@@ -510,13 +510,7 @@ class RealisticSolarSystemApp(ShowBase):
         # Re-add trails for new bodies if trails were enabled
         if trails_were_enabled and self.trail_manager:
             self.trail_manager.enabled = True
-            # Re-add trails for planets (not sun)
-            for body in self.bodies:
-                if body != self.sun:
-                    # Longer trails for outer planets
-                    max_points = 2000 if body.name in ['Jupiter', 'Saturn', 'Uranus', 'Neptune'] else 1000
-                    # White, bright trails for all bodies with increased thickness
-                    self.trail_manager.add_trail(body, max_points=max_points, color=(1, 1, 1), thickness=4.0)
+            self._add_body_trails()
 
         # Reset camera to track sun
         self.tracked_body = self.sun
@@ -550,17 +544,11 @@ class RealisticSolarSystemApp(ShowBase):
         print("=" * 70 + "\n")
 
     def handle_collisions(self, collisions):
-        """
-        Handle collision events between celestial bodies
-
-        Args:
-            collisions (list): List of (body1, body2) tuples representing collisions
-        """
+        """Handle collision events between celestial bodies"""
         bodies_to_remove = set()
         bodies_to_add = []
 
         for body1, body2 in collisions:
-            # Skip if either body already marked for removal
             if body1 in bodies_to_remove or body2 in bodies_to_remove:
                 continue
 
@@ -568,66 +556,19 @@ class RealisticSolarSystemApp(ShowBase):
             print(f"COLLISION EVENT: {body1.name} + {body2.name}")
             print(f"{'='*60}")
 
-            # Create explosion effect at collision point
+            # Explosion at collision midpoint
             collision_pos = (body1.position + body2.position) / 2
-            explosion_radius = max(body1.radius, body2.radius) * 2
-            self.create_explosion(collision_pos, explosion_radius)
+            self.create_explosion(collision_pos, max(body1.radius, body2.radius) * 2)
 
-            # Calculate merged body using conservation of momentum
-            total_mass = body1.mass + body2.mass
-            merged_velocity = (body1.velocity * body1.mass + body2.velocity * body2.mass) / total_mass
-            merged_position = (body1.position * body1.mass + body2.position * body2.mass) / total_mass
-
-            # Calculate merged radius (volume conservation: V1 + V2 = V_merged)
-            # V = (4/3)πr³, so r_merged = (r1³ + r2³)^(1/3)
-            merged_radius = (body1.radius**3 + body2.radius**3) ** (1/3)
-
-            # Determine name and color for merged body
-            if body1.mass > body2.mass:
-                larger_body = body1
-                smaller_body = body2
-            else:
-                larger_body = body2
-                smaller_body = body1
-
-            merged_name = f"{larger_body.name}+{smaller_body.name}"
-            # Blend colors based on mass ratio
-            mass_ratio = larger_body.mass / total_mass
-            merged_color = (
-                larger_body.color[0] * mass_ratio + smaller_body.color[0] * (1 - mass_ratio),
-                larger_body.color[1] * mass_ratio + smaller_body.color[1] * (1 - mass_ratio),
-                larger_body.color[2] * mass_ratio + smaller_body.color[2] * (1 - mass_ratio)
-            )
-
-            print(f"  Merged body: {merged_name}")
-            print(f"  Total mass: {total_mass:.3e} kg")
-            print(f"  Merged radius: {merged_radius:.3f} units")
-            print(f"  Merged velocity: {np.linalg.norm(merged_velocity):.1f} m/s")
-
-            # Create merged body
-            from celestial_body import CelestialBody
-            merged_body = CelestialBody(
-                name=merged_name,
-                mass=total_mass,
-                radius=merged_radius,
-                color=merged_color,
-                position=merged_position.copy(),
-                velocity=merged_velocity.copy(),
-                is_emissive=larger_body.is_emissive or smaller_body.is_emissive,
-                texture_path=larger_body.texture_path  # Use larger body's texture
-            )
-
-            # Render the merged body
+            # Create merged body from collision
+            merged_body = self._create_merged_body(body1, body2)
             merged_body.create_visual(self)
 
-            # Mark original bodies for removal
             bodies_to_remove.add(body1)
             bodies_to_remove.add(body2)
-
-            # Add merged body to list
             bodies_to_add.append(merged_body)
 
-        # Remove collided bodies
+        # Remove collided bodies and add merged ones
         for body in bodies_to_remove:
             if body.node:
                 body.node.removeNode()
@@ -635,10 +576,39 @@ class RealisticSolarSystemApp(ShowBase):
                 self.bodies.remove(body)
             print(f"  Removed: {body.name}")
 
-        # Add merged bodies
         for body in bodies_to_add:
             self.bodies.append(body)
             print(f"  Added: {body.name}")
+
+    def _create_merged_body(self, body1, body2):
+        """Create a new body from two colliding bodies using conservation laws"""
+        total_mass = body1.mass + body2.mass
+        merged_velocity = (body1.velocity * body1.mass + body2.velocity * body2.mass) / total_mass
+        merged_position = (body1.position * body1.mass + body2.position * body2.mass) / total_mass
+        merged_radius = (body1.radius**3 + body2.radius**3) ** (1/3)
+
+        # Larger body determines name and texture
+        larger, smaller = (body1, body2) if body1.mass > body2.mass else (body2, body1)
+        mass_ratio = larger.mass / total_mass
+        merged_color = tuple(
+            larger.color[i] * mass_ratio + smaller.color[i] * (1 - mass_ratio)
+            for i in range(3)
+        )
+
+        print(f"  Merged body: {larger.name}+{smaller.name}")
+        print(f"  Total mass: {total_mass:.3e} kg")
+        print(f"  Merged radius: {merged_radius:.3f} units")
+
+        return CelestialBody(
+            name=f"{larger.name}+{smaller.name}",
+            mass=total_mass,
+            radius=merged_radius,
+            color=merged_color,
+            position=merged_position.copy(),
+            velocity=merged_velocity.copy(),
+            is_emissive=larger.is_emissive or smaller.is_emissive,
+            texture_path=larger.texture_path
+        )
 
     def create_explosion(self, position, radius):
         """
@@ -716,90 +686,10 @@ class RealisticSolarSystemApp(ShowBase):
         dt = globalClock.getDt()
 
         if not self.paused:
-            # Mouse camera control
-            if self.mouse_dragging and self.mouseWatcherNode.hasMouse():
-                mouse_x = self.mouseWatcherNode.getMouseX()
-                mouse_y = self.mouseWatcherNode.getMouseY()
+            self._update_mouse_camera()
+            self._update_physics(dt)
+            self._update_energy_visualization()
 
-                dx = mouse_x - self.last_mouse_x
-                dy = mouse_y - self.last_mouse_y
-
-                self.camera_angle_h += dx * 100
-                self.camera_angle_v = max(-89, min(89, self.camera_angle_v - dy * 100))
-
-                self.update_camera_position()
-
-                self.last_mouse_x = mouse_x
-                self.last_mouse_y = mouse_y
-
-            # Physics update
-            if self.physics_mode == "SIMPLE":
-                # Simple orbital mechanics
-                for body in self.bodies:
-                    if body != self.sun:
-                        if hasattr(body, 'parent'):
-                            # Moon: orbit relative to parent
-                            body.update_simple_orbit(self.time)
-                            # Offset by parent position
-                            body.position += body.parent.position
-                            body.update_visual_position()
-                        else:
-                            # Planet: orbit around sun
-                            body.update_simple_orbit(self.time)
-
-                self.time += dt * self.time_scale * 86400.0  # Scale to days
-
-            elif self.physics_mode == "NBODY":
-                # N-body gravitational simulation with substeps
-                total_dt = dt * self.time_scale * 86400.0  # Scale to days, same as SIMPLE mode
-                max_substep = 100.0  # seconds (smaller for stability)
-                max_substeps = 200  # Limit to prevent crashes at very high time scales
-
-                # Track all collisions during this frame
-                all_collisions = []
-
-                if total_dt <= max_substep:
-                    collisions = nbody.update_nbody_physics(self.bodies, total_dt, self.size_scale)
-                    all_collisions.extend(collisions)
-                else:
-                    num_substeps = min(int(np.ceil(total_dt / max_substep)), max_substeps)
-                    substep_dt = total_dt / num_substeps
-                    for _ in range(num_substeps):
-                        collisions = nbody.update_nbody_physics(self.bodies, substep_dt, self.size_scale)
-                        all_collisions.extend(collisions)
-
-                # Handle collisions if any occurred (and collisions are enabled)
-                if self.collisions_enabled and all_collisions:
-                    self.handle_collisions(all_collisions)
-
-                # Check for NaN values (indicates numerical instability)
-                for body in self.bodies:
-                    if np.any(np.isnan(body.position)) or np.any(np.isnan(body.velocity)):
-                        print("WARNING: N-body simulation became unstable (NaN detected)")
-                        print("Automatically switching back to SIMPLE mode")
-                        # Reset to SIMPLE mode
-                        self.physics_mode = "SIMPLE"
-                        self.time = 0.0
-                        # Reinitialize all bodies to their starting positions
-                        for reset_body in self.bodies:
-                            if hasattr(reset_body, 'orbital_params'):
-                                reset_body.update_simple_orbit(0.0)
-                        if self.control_panel:
-                            self.control_panel.physics_button['text'] = "Mode: SIMPLE"
-                        self.clear_trails()
-                        break
-
-            # Update energy flux visualization
-            if self.energy_vis_enabled:
-                for body in self.bodies:
-                    if body != self.sun:
-                        body.calculate_energy_flux(self.sun.position, self.sun.mass)
-                        body.update_heat_visualization(True)
-            else:
-                for body in self.bodies:
-                    body.update_heat_visualization(False)
-
-            # Update trails
             if self.trail_manager:
                 self.trail_manager.update()
 
@@ -807,6 +697,84 @@ class RealisticSolarSystemApp(ShowBase):
         self.update_camera_position()
 
         return task.cont
+
+    def _update_mouse_camera(self):
+        """Handle mouse drag camera rotation"""
+        if self.mouse_dragging and self.mouseWatcherNode.hasMouse():
+            mouse_x = self.mouseWatcherNode.getMouseX()
+            mouse_y = self.mouseWatcherNode.getMouseY()
+
+            dx = mouse_x - self.last_mouse_x
+            dy = mouse_y - self.last_mouse_y
+
+            self.camera_angle_h += dx * 100
+            self.camera_angle_v = max(-89, min(89, self.camera_angle_v - dy * 100))
+
+            self.update_camera_position()
+
+            self.last_mouse_x = mouse_x
+            self.last_mouse_y = mouse_y
+
+    def _update_physics(self, dt):
+        """Step physics simulation forward"""
+        if self.physics_mode == "SIMPLE":
+            for body in self.bodies:
+                if body != self.sun:
+                    if hasattr(body, 'parent'):
+                        body.update_simple_orbit(self.time)
+                        body.position += body.parent.position
+                        body.update_visual_position()
+                    else:
+                        body.update_simple_orbit(self.time)
+
+            self.time += dt * self.time_scale * 86400.0
+
+        elif self.physics_mode == "NBODY":
+            total_dt = dt * self.time_scale * 86400.0
+            max_substep = 100.0
+            max_substeps = 200
+
+            all_collisions = []
+            if total_dt <= max_substep:
+                all_collisions = nbody.update_nbody_physics(self.bodies, total_dt, self.size_scale)
+            else:
+                num_substeps = min(int(np.ceil(total_dt / max_substep)), max_substeps)
+                substep_dt = total_dt / num_substeps
+                for _ in range(num_substeps):
+                    collisions = nbody.update_nbody_physics(self.bodies, substep_dt, self.size_scale)
+                    all_collisions.extend(collisions)
+
+            if self.collisions_enabled and all_collisions:
+                self.handle_collisions(all_collisions)
+
+            self._check_stability()
+
+    def _check_stability(self):
+        """Check for NaN values indicating numerical instability"""
+        for body in self.bodies:
+            if np.any(np.isnan(body.position)) or np.any(np.isnan(body.velocity)):
+                print("WARNING: N-body simulation became unstable (NaN detected)")
+                print("Automatically switching back to SIMPLE mode")
+                self.physics_mode = "SIMPLE"
+                self.time = 0.0
+                for reset_body in self.bodies:
+                    if hasattr(reset_body, 'orbital_params'):
+                        reset_body.update_simple_orbit(0.0)
+                if self.control_panel:
+                    self.control_panel.physics_button['text'] = "Mode: SIMPLE"
+                self.clear_trails()
+                break
+
+    def _update_energy_visualization(self):
+        """Update energy flux visualization for all bodies"""
+        if self.energy_vis_enabled:
+            for body in self.bodies:
+                if body != self.sun:
+                    body.calculate_energy_flux(self.sun.position, self.sun.mass)
+                    body.update_heat_visualization(True)
+        else:
+            for body in self.bodies:
+                body.update_heat_visualization(False)
 
 
 if __name__ == "__main__":

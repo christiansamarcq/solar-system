@@ -301,8 +301,8 @@ class CelestialBody:
         r_vec = self.position - sun_position
         distance = np.linalg.norm(r_vec)
 
-        if distance < 0.1:
-            distance = 0.1  # Avoid division by zero
+        if distance < 0.1:  # Minimum distance to prevent singularity
+            distance = 0.1
 
         # Inverse square law
         self.energy_received = sun_luminosity / (4 * np.pi * distance * distance)
