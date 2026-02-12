@@ -162,6 +162,12 @@ class TrailManager:
         self.trails[body.name] = trail
         return trail
 
+    def remove_trail(self, body):
+        """Remove trail for a celestial body"""
+        if body.name in self.trails:
+            self.trails[body.name].clear()
+            del self.trails[body.name]
+
     def update(self):
         """Update all trails"""
         if not self.enabled:

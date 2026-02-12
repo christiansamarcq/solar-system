@@ -109,7 +109,7 @@ class RealisticSolarSystemApp(ShowBase):
         # Balance between close zoom and depth buffer precision (avoid z-fighting)
         # Using more conservative ratio to prevent flickering on small objects
         self.camLens.setNear(0.01)    # Allow close zoom while preventing z-fighting
-        self.camLens.setFar(10000)    # Allow seeing whole solar system (near/far ratio ~1M:1)
+        self.camLens.setFar(500000)   # Allow seeing whole solar system when zoomed far out
 
         # Start far out to see whole solar system
         self.camera_distance = 500
@@ -399,7 +399,7 @@ class RealisticSolarSystemApp(ShowBase):
 
     def zoom_out(self):
         """Zoom camera out"""
-        self.camera_distance = min(10000, self.camera_distance * 1.1)
+        self.camera_distance = min(100000, self.camera_distance * 1.1)
         self.update_camera_position()
 
     def create_planet_menu(self):
@@ -556,13 +556,17 @@ class RealisticSolarSystemApp(ShowBase):
             print(f"COLLISION EVENT: {body1.name} + {body2.name}")
             print(f"{'='*60}")
 
-            # Explosion at collision midpoint
-            collision_pos = (body1.position + body2.position) / 2
-            self.create_explosion(collision_pos, max(body1.radius, body2.radius) * 2)
-
             # Create merged body from collision
             merged_body = self._create_merged_body(body1, body2)
-            merged_body.create_visual(self)
+            merged_body.create_visual(self, segments=64, rings=32)
+
+            # Apply the scale of whichever body was visually larger (the winner)
+            if merged_body.node:
+                sun_scale = self.control_panel.sun_rate_slider['value'] if self.control_panel else 1.0
+                visual1 = body1.radius * (sun_scale if body1.is_emissive else self.size_scale)
+                visual2 = body2.radius * (sun_scale if body2.is_emissive else self.size_scale)
+                winner_scale = (sun_scale if body1.is_emissive else self.size_scale) if visual1 >= visual2 else (sun_scale if body2.is_emissive else self.size_scale)
+                merged_body.node.setScale(winner_scale)
 
             bodies_to_remove.add(body1)
             bodies_to_remove.add(body2)
@@ -574,21 +578,43 @@ class RealisticSolarSystemApp(ShowBase):
                 body.node.removeNode()
             if body in self.bodies:
                 self.bodies.remove(body)
+            if body.name in self.body_dict:
+                del self.body_dict[body.name]
+            # Remove trail
+            if self.trail_manager:
+                self.trail_manager.remove_trail(body)
             print(f"  Removed: {body.name}")
 
         for body in bodies_to_add:
             self.bodies.append(body)
+            self.body_dict[body.name] = body
+            # If merged body is emissive (absorbed the sun), update self.sun
+            if body.is_emissive:
+                self.sun = body
+            else:
+                # Only add trail for non-sun bodies
+                if self.trail_manager and self.trail_manager.enabled:
+                    self.trail_manager.add_trail(body, max_points=1000, color=(1, 1, 1), thickness=4.0)
             print(f"  Added: {body.name}")
+
+        # Refresh planet menu if any collisions happened
+        if bodies_to_remove:
+            if self.planet_menu:
+                self.planet_menu.destroy()
+            self.create_planet_menu()
 
     def _create_merged_body(self, body1, body2):
         """Create a new body from two colliding bodies using conservation laws"""
         total_mass = body1.mass + body2.mass
         merged_velocity = (body1.velocity * body1.mass + body2.velocity * body2.mass) / total_mass
         merged_position = (body1.position * body1.mass + body2.position * body2.mass) / total_mass
-        merged_radius = (body1.radius**3 + body2.radius**3) ** (1/3)
+        # Additive radius: larger body + half of smaller body for visible growth
+        merged_radius = max(body1.radius, body2.radius) + min(body1.radius, body2.radius) * 0.5
 
-        # Larger body determines name and texture
-        larger, smaller = (body1, body2) if body1.mass > body2.mass else (body2, body1)
+        # Larger body (by visual size) determines name and texture
+        visual1 = body1.radius * (self._get_sun_scale() if body1.is_emissive else self.size_scale)
+        visual2 = body2.radius * (self._get_sun_scale() if body2.is_emissive else self.size_scale)
+        larger, smaller = (body1, body2) if visual1 >= visual2 else (body2, body1)
         mass_ratio = larger.mass / total_mass
         merged_color = tuple(
             larger.color[i] * mass_ratio + smaller.color[i] * (1 - mass_ratio)
@@ -658,12 +684,18 @@ class RealisticSolarSystemApp(ShowBase):
         self.collisions_enabled = not self.collisions_enabled
         print(f"Collision detection: {'ON' if self.collisions_enabled else 'OFF'}")
 
+    def _get_sun_scale(self):
+        """Get the current sun visual scale from the slider"""
+        if self.control_panel:
+            return self.control_panel.sun_rate_slider['value']
+        return 1.0
+
     def update_body_sizes(self, new_scale):
         """Update visual size of all bodies"""
         self.size_scale = new_scale
 
         for body in self.bodies:
-            if body == self.sun or not body.node:
+            if body.is_emissive or not body.node:
                 continue
             # Scale planets and moons
             body.node.setScale(new_scale)
@@ -730,12 +762,12 @@ class RealisticSolarSystemApp(ShowBase):
 
             all_collisions = []
             if total_dt <= max_substep:
-                all_collisions = nbody.update_nbody_physics(self.bodies, total_dt, self.size_scale)
+                all_collisions = nbody.update_nbody_physics(self.bodies, total_dt, self.size_scale, self._get_sun_scale())
             else:
                 num_substeps = min(int(np.ceil(total_dt / max_substep)), max_substeps)
                 substep_dt = total_dt / num_substeps
                 for _ in range(num_substeps):
-                    collisions = nbody.update_nbody_physics(self.bodies, substep_dt, self.size_scale)
+                    collisions = nbody.update_nbody_physics(self.bodies, substep_dt, self.size_scale, self._get_sun_scale())
                     all_collisions.extend(collisions)
 
             if self.collisions_enabled and all_collisions:

@@ -154,7 +154,7 @@ def calculate_all_forces_vectorized(bodies):
     return forces
 
 
-def update_nbody_physics(bodies, dt, size_scale=1.0):
+def update_nbody_physics(bodies, dt, size_scale=1.0, sun_scale=1.0):
     """
     Update positions and velocities using N-body gravity
 
@@ -164,7 +164,8 @@ def update_nbody_physics(bodies, dt, size_scale=1.0):
     Args:
         bodies (list): List of CelestialBody objects
         dt (float): Time step
-        size_scale (float): Visual size multiplier for collision detection (default 1.0)
+        size_scale (float): Visual size multiplier for planet collision detection (default 1.0)
+        sun_scale (float): Visual size multiplier for sun collision detection (default 1.0)
 
     Returns:
         list: List of collision events [(body1, body2), ...]
@@ -237,16 +238,15 @@ def update_nbody_physics(bodies, dt, size_scale=1.0):
             r_vec = bodies[j].position - bodies[i].position
             distance = np.linalg.norm(r_vec)
 
-            # Sum of VISUAL radii (physical radius * size_scale)
-            # This allows collisions when planets are scaled up visually
-            visual_radius_i = bodies[i].radius * size_scale
-            visual_radius_j = bodies[j].radius * size_scale
-            collision_radius = visual_radius_i + visual_radius_j
+            # Sum of VISUAL radii (each body uses its own scale)
+            scale_i = sun_scale if bodies[i].is_emissive else size_scale
+            scale_j = sun_scale if bodies[j].is_emissive else size_scale
+            collision_radius = bodies[i].radius * scale_i + bodies[j].radius * scale_j
 
             # Check for collision
             if distance < collision_radius:
                 collisions.append((bodies[i], bodies[j]))
-                print(f"COLLISION DETECTED: {bodies[i].name} and {bodies[j].name} (distance: {distance:.3f}, visual threshold: {collision_radius:.3f}, size scale: {size_scale:.1f}x)")
+                print(f"COLLISION DETECTED: {bodies[i].name} and {bodies[j].name} (distance: {distance:.3f}, threshold: {collision_radius:.3f})")
 
     return collisions
 
