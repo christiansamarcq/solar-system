@@ -25,7 +25,9 @@ SUN = {
     'color': (1.0, 0.9, 0.6),
     'texture': 'textures/sun.jpg',
     'is_emissive': True,
-    'luminosity': 3.828e26  # watts
+    'luminosity': 3.828e26,  # watts
+    'rotation_period': 25.38,  # days (sidereal, equatorial)
+    'axial_tilt': 7.25  # degrees (to ecliptic)
 }
 
 # Planet data from NASA Planetary Fact Sheet
@@ -40,6 +42,7 @@ PLANETS = {
         'inclination': math.radians(7.005),  # degrees to radians
         'orbital_period': 87.97,  # days
         'rotation_period': 58.646,  # days
+        'axial_tilt': 0.034,  # degrees
         'arg_periapsis': math.radians(29.124),  # argument of perihelion
         'color': (0.7, 0.7, 0.7),
         'texture': 'textures/mercury.jpg'
@@ -53,6 +56,7 @@ PLANETS = {
         'inclination': math.radians(3.39),
         'orbital_period': 224.70,  # days
         'rotation_period': -243.025,  # days (retrograde, hence negative)
+        'axial_tilt': 177.4,  # degrees (nearly upside down, retrograde)
         'arg_periapsis': math.radians(54.884),
         'color': (0.9, 0.8, 0.6),
         'texture': 'textures/venus.jpg'
@@ -66,6 +70,7 @@ PLANETS = {
         'inclination': math.radians(0.0),  # reference plane
         'orbital_period': 365.26,  # days
         'rotation_period': 0.99726968,  # days (23.9345 hours)
+        'axial_tilt': 23.44,  # degrees
         'arg_periapsis': math.radians(114.20783),
         'color': (0.2, 0.4, 0.8),
         'texture': 'textures/earth.jpg'
@@ -79,6 +84,7 @@ PLANETS = {
         'inclination': math.radians(1.85),
         'orbital_period': 686.98,  # days
         'rotation_period': 1.025957,  # days
+        'axial_tilt': 25.19,  # degrees
         'arg_periapsis': math.radians(286.5),
         'color': (0.8, 0.4, 0.2),
         'texture': 'textures/mars.jpg'
@@ -92,6 +98,7 @@ PLANETS = {
         'inclination': math.radians(1.304),
         'orbital_period': 4332.59,  # days (~11.86 years)
         'rotation_period': 0.41354,  # days (~9.925 hours)
+        'axial_tilt': 3.13,  # degrees
         'arg_periapsis': math.radians(273.867),
         'color': (0.8, 0.7, 0.5),
         'texture': 'textures/jupiter.jpg'
@@ -105,6 +112,7 @@ PLANETS = {
         'inclination': math.radians(2.485),
         'orbital_period': 10759.22,  # days (~29.46 years)
         'rotation_period': 0.44401,  # days (~10.656 hours)
+        'axial_tilt': 26.73,  # degrees
         'arg_periapsis': math.radians(339.392),
         'color': (0.9, 0.8, 0.6),
         'texture': 'textures/saturn.jpg'
@@ -118,6 +126,7 @@ PLANETS = {
         'inclination': math.radians(0.773),
         'orbital_period': 30688.5,  # days (~84.01 years)
         'rotation_period': -0.71833,  # days (retrograde, ~17.24 hours)
+        'axial_tilt': 97.77,  # degrees (rotates on its side)
         'arg_periapsis': math.radians(96.998857),
         'color': (0.5, 0.7, 0.8),
         'texture': 'textures/uranus.jpg'
@@ -131,6 +140,7 @@ PLANETS = {
         'inclination': math.radians(1.767),
         'orbital_period': 60182,  # days (~164.79 years)
         'rotation_period': 0.67125,  # days (~16.11 hours)
+        'axial_tilt': 28.32,  # degrees
         'arg_periapsis': math.radians(273.187),
         'color': (0.3, 0.4, 0.9),
         'texture': 'textures/neptune.jpg'
@@ -144,6 +154,7 @@ PLANETS = {
         'inclination': math.radians(17.16),  # highly inclined
         'orbital_period': 90560,  # days (~248 years)
         'rotation_period': -6.387,  # days (retrograde, ~6.4 days)
+        'axial_tilt': 122.53,  # degrees (tilted past sideways)
         'arg_periapsis': math.radians(113.834),
         'color': (0.8, 0.7, 0.6),  # brownish color
         'texture': 'textures/moon.jpg'  # using generic moon texture
@@ -152,7 +163,7 @@ PLANETS = {
 
 # Major moons with orbital data
 MOONS = {
-    'Moon': {  # Earth's Moon
+    'Moon': {  # Earth's Moon (tidally locked)
         'name': 'Moon',
         'parent': 'Earth',
         'mass': 0.07346e24,  # kg
@@ -161,10 +172,12 @@ MOONS = {
         'eccentricity': 0.0549,
         'inclination': math.radians(5.145),  # to ecliptic
         'orbital_period': 27.3217,  # days
+        'rotation_period': 27.3217,  # days (tidally locked)
+        'axial_tilt': 6.68,  # degrees (to ecliptic)
         'color': (0.7, 0.7, 0.7),
         'texture': 'textures/moon.jpg'
     },
-    'Io': {  # Jupiter's moon
+    'Io': {  # Jupiter's moon (tidally locked)
         'name': 'Io',
         'parent': 'Jupiter',
         'mass': 0.08932e24,  # kg
@@ -173,10 +186,12 @@ MOONS = {
         'eccentricity': 0.0041,
         'inclination': math.radians(0.05),
         'orbital_period': 1.769,  # days
+        'rotation_period': 1.769,  # days (tidally locked)
+        'axial_tilt': 0.0,  # degrees
         'color': (0.9, 0.8, 0.3),
-        'texture': 'textures/moon.jpg'  # using generic moon texture
+        'texture': 'textures/moon.jpg'
     },
-    'Europa': {  # Jupiter's moon
+    'Europa': {  # Jupiter's moon (tidally locked)
         'name': 'Europa',
         'parent': 'Jupiter',
         'mass': 0.04800e24,  # kg
@@ -185,10 +200,12 @@ MOONS = {
         'eccentricity': 0.0094,
         'inclination': math.radians(0.47),
         'orbital_period': 3.551,  # days
+        'rotation_period': 3.551,  # days (tidally locked)
+        'axial_tilt': 0.1,  # degrees
         'color': (0.8, 0.8, 0.7),
         'texture': 'textures/moon.jpg'
     },
-    'Ganymede': {  # Jupiter's moon (largest moon in solar system)
+    'Ganymede': {  # Jupiter's moon (largest moon in solar system, tidally locked)
         'name': 'Ganymede',
         'parent': 'Jupiter',
         'mass': 0.1482e24,  # kg
@@ -197,10 +214,12 @@ MOONS = {
         'eccentricity': 0.0013,
         'inclination': math.radians(0.20),
         'orbital_period': 7.155,  # days
+        'rotation_period': 7.155,  # days (tidally locked)
+        'axial_tilt': 0.165,  # degrees
         'color': (0.6, 0.6, 0.5),
         'texture': 'textures/moon.jpg'
     },
-    'Callisto': {  # Jupiter's moon
+    'Callisto': {  # Jupiter's moon (tidally locked)
         'name': 'Callisto',
         'parent': 'Jupiter',
         'mass': 0.1076e24,  # kg
@@ -209,10 +228,12 @@ MOONS = {
         'eccentricity': 0.0074,
         'inclination': math.radians(0.51),
         'orbital_period': 16.689,  # days
+        'rotation_period': 16.689,  # days (tidally locked)
+        'axial_tilt': 0.0,  # degrees
         'color': (0.5, 0.5, 0.4),
         'texture': 'textures/moon.jpg'
     },
-    'Titan': {  # Saturn's moon (2nd largest in solar system)
+    'Titan': {  # Saturn's moon (2nd largest in solar system, tidally locked)
         'name': 'Titan',
         'parent': 'Saturn',
         'mass': 0.13452e24,  # kg
@@ -221,6 +242,8 @@ MOONS = {
         'eccentricity': 0.0288,
         'inclination': math.radians(0.34854),
         'orbital_period': 15.945,  # days
+        'rotation_period': 15.945,  # days (tidally locked)
+        'axial_tilt': 0.3,  # degrees
         'color': (0.8, 0.6, 0.4),
         'texture': 'textures/moon.jpg'
     }

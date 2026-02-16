@@ -239,8 +239,10 @@ def update_nbody_physics(bodies, dt, size_scale=1.0, sun_scale=1.0):
             distance = np.linalg.norm(r_vec)
 
             # Sum of VISUAL radii (each body uses its own scale)
-            scale_i = sun_scale if bodies[i].is_emissive else size_scale
-            scale_j = sun_scale if bodies[j].is_emissive else size_scale
+            uses_sun_i = getattr(bodies[i], 'uses_sun_scale', bodies[i].is_emissive)
+            uses_sun_j = getattr(bodies[j], 'uses_sun_scale', bodies[j].is_emissive)
+            scale_i = sun_scale if uses_sun_i else size_scale
+            scale_j = sun_scale if uses_sun_j else size_scale
             collision_radius = bodies[i].radius * scale_i + bodies[j].radius * scale_j
 
             # Check for collision

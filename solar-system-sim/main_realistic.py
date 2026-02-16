@@ -109,7 +109,7 @@ class RealisticSolarSystemApp(ShowBase):
         # Balance between close zoom and depth buffer precision (avoid z-fighting)
         # Using more conservative ratio to prevent flickering on small objects
         self.camLens.setNear(0.01)    # Allow close zoom while preventing z-fighting
-        self.camLens.setFar(500000)   # Allow seeing whole solar system when zoomed far out
+        self.camLens.setFar(5000000)  # Allow seeing whole solar system when zoomed far out
 
         # Start far out to see whole solar system
         self.camera_distance = 500
@@ -262,6 +262,8 @@ class RealisticSolarSystemApp(ShowBase):
             is_emissive=True,
             texture_path=sun_data['texture']
         )
+        self.sun.rotation_period = sun_data.get('rotation_period', 0)
+        self.sun.axial_tilt = sun_data.get('axial_tilt', 0)
         self.sun.create_visual(self, segments=64, rings=32)
         self.bodies.append(self.sun)
         self.body_dict[self.sun.name] = self.sun
@@ -282,6 +284,10 @@ class RealisticSolarSystemApp(ShowBase):
                 color=planet_data['color'],
                 texture_path=planet_data['texture']
             )
+
+            # Set rotation properties
+            planet.rotation_period = planet_data.get('rotation_period', 0)
+            planet.axial_tilt = planet_data.get('axial_tilt', 0)
 
             # Set elliptical orbit parameters
             planet.set_elliptical_orbit(
@@ -328,6 +334,10 @@ class RealisticSolarSystemApp(ShowBase):
                 color=moon_data['color'],
                 texture_path=moon_data['texture']
             )
+
+            # Set rotation properties
+            moon.rotation_period = moon_data.get('rotation_period', 0)
+            moon.axial_tilt = moon_data.get('axial_tilt', 0)
 
             # Set orbit around parent (will need custom update logic)
             moon.set_elliptical_orbit(
@@ -399,7 +409,7 @@ class RealisticSolarSystemApp(ShowBase):
 
     def zoom_out(self):
         """Zoom camera out"""
-        self.camera_distance = min(100000, self.camera_distance * 1.1)
+        self.camera_distance = min(1000000, self.camera_distance * 1.1)
         self.update_camera_position()
 
     def create_planet_menu(self):
@@ -560,13 +570,12 @@ class RealisticSolarSystemApp(ShowBase):
             merged_body = self._create_merged_body(body1, body2)
             merged_body.create_visual(self, segments=64, rings=32)
 
-            # Apply the scale of whichever body was visually larger (the winner)
+            # Apply the winner's scale type
             if merged_body.node:
-                sun_scale = self.control_panel.sun_rate_slider['value'] if self.control_panel else 1.0
-                visual1 = body1.radius * (sun_scale if body1.is_emissive else self.size_scale)
-                visual2 = body2.radius * (sun_scale if body2.is_emissive else self.size_scale)
-                winner_scale = (sun_scale if body1.is_emissive else self.size_scale) if visual1 >= visual2 else (sun_scale if body2.is_emissive else self.size_scale)
-                merged_body.node.setScale(winner_scale)
+                if merged_body.uses_sun_scale:
+                    merged_body.node.setScale(self.control_panel.sun_rate_slider['value'] if self.control_panel else 1.0)
+                else:
+                    merged_body.node.setScale(self.size_scale)
 
             bodies_to_remove.add(body1)
             bodies_to_remove.add(body2)
@@ -625,7 +634,7 @@ class RealisticSolarSystemApp(ShowBase):
         print(f"  Total mass: {total_mass:.3e} kg")
         print(f"  Merged radius: {merged_radius:.3f} units")
 
-        return CelestialBody(
+        merged = CelestialBody(
             name=f"{larger.name}+{smaller.name}",
             mass=total_mass,
             radius=merged_radius,
@@ -635,6 +644,9 @@ class RealisticSolarSystemApp(ShowBase):
             is_emissive=larger.is_emissive or smaller.is_emissive,
             texture_path=larger.texture_path
         )
+        # Use the winner's scale type (planet ate sun = use planet scale)
+        merged.uses_sun_scale = larger.uses_sun_scale if hasattr(larger, 'uses_sun_scale') else larger.is_emissive
+        return merged
 
     def create_explosion(self, position, radius):
         """
@@ -695,7 +707,8 @@ class RealisticSolarSystemApp(ShowBase):
         self.size_scale = new_scale
 
         for body in self.bodies:
-            if body.is_emissive or not body.node:
+            uses_sun = getattr(body, 'uses_sun_scale', body.is_emissive)
+            if uses_sun or not body.node:
                 continue
             # Scale planets and moons
             body.node.setScale(new_scale)
@@ -715,6 +728,7 @@ class RealisticSolarSystemApp(ShowBase):
             self._update_mouse_camera()
             self._update_physics(dt)
             self._update_energy_visualization()
+            self._update_body_rotations(dt)
 
             if self.trail_manager:
                 self.trail_manager.update()
@@ -790,6 +804,12 @@ class RealisticSolarSystemApp(ShowBase):
                     self.control_panel.physics_button['text'] = "Mode: SIMPLE"
                 self.clear_trails()
                 break
+
+    def _update_body_rotations(self, dt):
+        """Update axial spin for all bodies"""
+        sim_dt = dt * self.time_scale * 86400.0  # convert to simulation seconds
+        for body in self.bodies:
+            body.update_spin(sim_dt)
 
     def _update_energy_visualization(self):
         """Update energy flux visualization for all bodies"""

@@ -88,7 +88,7 @@ class ControlPanel:
         )
 
         self.sun_rate_slider = DirectSlider(
-            range=(0.1, 10.0),
+            range=(0.1, 100.0),
             value=1.0,
             pageSize=0.5,
             command=self.on_sun_rate_changed,

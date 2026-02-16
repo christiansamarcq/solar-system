@@ -130,6 +130,11 @@ class CelestialBody:
         self.inclination = 0.0  # i (tilt angle in radians)
         self.arg_periapsis = 0.0  # ω (rotation of ellipse)
 
+        # Rotation properties
+        self.rotation_period = 0.0  # days (negative = retrograde)
+        self.axial_tilt = 0.0  # degrees
+        self.spin_angle = 0.0  # current rotation angle in degrees
+
         # Energy flux properties
         self.energy_received = 0.0  # Energy flux from sun
         self.base_color = color  # Store original color
@@ -181,12 +186,24 @@ class CelestialBody:
         self.update_visual_position()
 
     def update_visual_position(self):
-        """Update the 3D model position to match physics position"""
+        """Update the 3D model position and rotation to match physics"""
         if self.node:
-            # Panda3D uses different coordinate convention
-            # Our physics: x=right, y=forward, z=up
-            # Panda3D: x=right, y=forward, z=up (same, actually)
             self.node.setPos(self.position[0], self.position[1], self.position[2])
+            # Apply axial tilt (pitch) and spin (heading)
+            # H = spin around axis, P = axial tilt, R = 0
+            self.node.setHpr(self.spin_angle, self.axial_tilt, 0)
+
+    def update_spin(self, dt_seconds):
+        """Update spin angle based on rotation period"""
+        if self.rotation_period != 0:
+            # rotation_period is in days, dt is in seconds
+            period_seconds = abs(self.rotation_period) * 86400.0
+            degrees_per_second = 360.0 / period_seconds
+            # Negative rotation_period = retrograde = spin in opposite direction
+            if self.rotation_period < 0:
+                degrees_per_second = -degrees_per_second
+            self.spin_angle += degrees_per_second * dt_seconds
+            self.spin_angle %= 360.0
 
     def set_simple_orbit(self, distance, period, phase=0.0):
         """
