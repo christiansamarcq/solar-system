@@ -69,7 +69,7 @@ PLANETS = {
         'eccentricity': 0.0167,
         'inclination': math.radians(0.0),  # reference plane
         'orbital_period': 365.26,  # days
-        'rotation_period': 0.99726968,  # days (23.9345 hours)
+        'rotation_period': 0.99726968,  # days (23.9355 hours)
         'axial_tilt': 23.44,  # degrees
         'arg_periapsis': math.radians(114.20783),
         'color': (0.2, 0.4, 0.8),
@@ -248,6 +248,74 @@ MOONS = {
         'texture': 'textures/moon.jpg'
     }
 }
+
+
+def generate_asteroid_belt(count=100, seed=42):
+    """Generate asteroid belt data between Mars and Jupiter orbits (2.1-3.3 AU)"""
+    rng = np.random.RandomState(seed)
+    asteroids = []
+
+    # Asteroid belt region: 2.1 AU to 3.3 AU
+    min_au = 2.1
+    max_au = 3.3
+    au_to_meters = 149.597870700e9  # 1 AU in meters
+
+    # Kirkwood gaps (orbital resonances with Jupiter to avoid)
+    # 2.50 AU (3:1), 2.82 AU (5:2), 2.95 AU (7:3), 3.27 AU (2:1)
+    kirkwood_gaps = [2.50, 2.82, 2.95, 3.27]
+    gap_width = 0.03  # AU
+
+    for i in range(count):
+        # Random semi-major axis avoiding Kirkwood gaps
+        while True:
+            a_au = rng.uniform(min_au, max_au)
+            in_gap = any(abs(a_au - gap) < gap_width for gap in kirkwood_gaps)
+            if not in_gap:
+                break
+
+        semi_major_axis = a_au * au_to_meters  # meters
+
+        # Kepler's third law: period² = a³ (in AU and years)
+        period_years = a_au ** 1.5
+        period_days = period_years * 365.25
+
+        # Random orbital elements
+        eccentricity = rng.uniform(0.0, 0.3)
+        inclination = math.radians(rng.uniform(0, 20))
+        arg_periapsis = math.radians(rng.uniform(0, 360))
+        phase = rng.uniform(0, 2 * math.pi)
+
+        # Mass: ranges from small rocks to Ceres-sized (~9.4e20 kg)
+        log_mass = rng.uniform(12, 18)  # 1e12 to 1e18 kg
+        mass = 10 ** log_mass
+
+        # Radius: 0.5 km to 500 km
+        log_radius = rng.uniform(2.7, 5.7)  # log10(500) to log10(500000) meters
+        radius = 10 ** log_radius
+
+        # Gray/brown colors
+        gray = rng.uniform(0.3, 0.7)
+        color = (gray + rng.uniform(-0.1, 0.1),
+                 gray + rng.uniform(-0.1, 0.05),
+                 gray + rng.uniform(-0.15, 0.0))
+
+        asteroids.append({
+            'name': f'Asteroid-{i+1:03d}',
+            'mass': mass,
+            'radius': radius,
+            'semi_major_axis': semi_major_axis,
+            'eccentricity': eccentricity,
+            'inclination': inclination,
+            'orbital_period': period_days,
+            'rotation_period': rng.uniform(0.1, 2.0),  # days (most spin fast)
+            'axial_tilt': rng.uniform(0, 180),  # random tilt
+            'arg_periapsis': arg_periapsis,
+            'phase': phase,
+            'color': color,
+            'texture': 'textures/moon.jpg'
+        })
+
+    return asteroids
 
 
 def get_scaled_radius(radius_m):

@@ -131,6 +131,74 @@ class TrailRenderer:
         self.positions = deque(old_positions, maxlen=max_points)
 
 
+class GroupTrailRenderer:
+    """Renders a trail for the average center position of a group of bodies"""
+
+    def __init__(self, bodies, max_points=1000, color=(0.6, 0.6, 0.5), thickness=3.0):
+        self.bodies = bodies
+        self.max_points = max_points
+        self.color = color
+        self.thickness = thickness
+        self.positions = deque(maxlen=max_points)
+        self.line_segs = None
+        self.line_node = None
+        self.enabled = True
+        self.update_counter = 0
+        self.update_interval = 3
+
+    def update(self, render):
+        if not self.enabled or len(self.bodies) == 0:
+            return
+
+        self.update_counter += 1
+        if self.update_counter % self.update_interval != 0:
+            if self.line_node is not None and len(self.positions) >= 2:
+                self._rebuild_line(render)
+            return
+
+        # Calculate average position of all bodies in the group
+        avg_pos = np.mean([b.position for b in self.bodies], axis=0)
+        self.positions.append(avg_pos.copy())
+
+        if len(self.positions) >= 2:
+            self._rebuild_line(render)
+
+    def _rebuild_line(self, render):
+        if self.line_node is not None:
+            self.line_node.removeNode()
+            self.line_node = None
+
+        self.line_segs = LineSegs()
+        self.line_segs.setThickness(self.thickness)
+        self.line_segs.setColor(self.color[0], self.color[1], self.color[2], 1)
+
+        for i in range(len(self.positions) - 1):
+            p1 = self.positions[i]
+            p2 = self.positions[i + 1]
+            self.line_segs.moveTo(p1[0], p1[1], p1[2])
+            self.line_segs.drawTo(p2[0], p2[1], p2[2])
+
+        self.line_node = render.attachNewNode(self.line_segs.create())
+        self.line_node.setLightOff()
+        self.line_node.setColorScale(1.5, 1.5, 1.5, 1)
+
+    def clear(self):
+        self.positions.clear()
+        if self.line_node is not None:
+            self.line_node.removeNode()
+            self.line_node = None
+
+    def set_enabled(self, enabled):
+        self.enabled = enabled
+        if not enabled and self.line_node is not None:
+            self.line_node.removeNode()
+            self.line_node = None
+
+    def update_bodies(self, bodies):
+        """Update the list of bodies (e.g. after collisions remove some)"""
+        self.bodies = [b for b in bodies if b in self.bodies or b.name.startswith('Asteroid')]
+
+
 class TrailManager:
     """Manages trails for all celestial bodies"""
 
@@ -143,6 +211,7 @@ class TrailManager:
         """
         self.render = render
         self.trails = {}
+        self.group_trail = None
         self.enabled = True
 
     def add_trail(self, body, max_points=1000, color=None, thickness=2.0):
@@ -162,6 +231,11 @@ class TrailManager:
         self.trails[body.name] = trail
         return trail
 
+    def add_group_trail(self, bodies, max_points=1000, color=(0.6, 0.6, 0.5), thickness=3.0):
+        """Add a trail tracking the average center of a group of bodies"""
+        self.group_trail = GroupTrailRenderer(bodies, max_points, color, thickness)
+        return self.group_trail
+
     def remove_trail(self, body):
         """Remove trail for a celestial body"""
         if body.name in self.trails:
@@ -175,17 +249,23 @@ class TrailManager:
 
         for trail in self.trails.values():
             trail.update(self.render)
+        if self.group_trail:
+            self.group_trail.update(self.render)
 
     def clear_all(self):
         """Clear all trails"""
         for trail in self.trails.values():
             trail.clear()
+        if self.group_trail:
+            self.group_trail.clear()
 
     def set_enabled(self, enabled):
         """Enable or disable all trails"""
         self.enabled = enabled
         for trail in self.trails.values():
             trail.set_enabled(enabled)
+        if self.group_trail:
+            self.group_trail.set_enabled(enabled)
 
     def toggle(self):
         """Toggle trails on/off"""

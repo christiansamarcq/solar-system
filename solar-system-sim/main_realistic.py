@@ -358,17 +358,57 @@ class RealisticSolarSystemApp(ShowBase):
 
             print(f"Created {moon_name} orbiting {parent_name}")
 
+        # Create asteroid belt
+        asteroids = rd.generate_asteroid_belt(count=100)
+        for ast_data in asteroids:
+            # Use a visible minimum radius (real asteroids are too tiny to see)
+            radius = max(rd.get_scaled_radius(ast_data['radius']), 0.002)
+            semi_major_axis = rd.get_scaled_distance(ast_data['semi_major_axis'])
+            period = rd.get_orbital_period_seconds(ast_data['orbital_period'])
+
+            asteroid = CelestialBody(
+                name=ast_data['name'],
+                mass=ast_data['mass'],
+                radius=radius,
+                color=ast_data['color'],
+                texture_path=ast_data['texture']
+            )
+
+            asteroid.rotation_period = ast_data['rotation_period']
+            asteroid.axial_tilt = ast_data['axial_tilt']
+
+            asteroid.set_elliptical_orbit(
+                semi_major_axis=semi_major_axis,
+                eccentricity=ast_data['eccentricity'],
+                period=period,
+                inclination=ast_data['inclination'],
+                arg_periapsis=ast_data['arg_periapsis'],
+                phase=ast_data['phase']
+            )
+
+            # Low-poly visuals for performance
+            asteroid.create_visual(self, segments=8, rings=4)
+            self.bodies.append(asteroid)
+            self.body_dict[asteroid.name] = asteroid
+
+        print(f"Created {len(asteroids)} asteroids in the asteroid belt")
+
     def setup_trails(self):
         """Initialize trail rendering for all bodies"""
         self.trail_manager = TrailManager(self.render)
         self._add_body_trails()
 
     def _add_body_trails(self):
-        """Add trail tracking for all non-sun bodies"""
+        """Add trail tracking for all non-sun, non-asteroid bodies"""
         for body in self.bodies:
-            if body != self.sun:
+            if body != self.sun and not body.name.startswith('Asteroid'):
                 max_points = 2000 if body.name in ['Jupiter', 'Saturn', 'Uranus', 'Neptune'] else 1000
                 self.trail_manager.add_trail(body, max_points=max_points, color=(1, 1, 1), thickness=4.0)
+
+        # Add trails for a few representative asteroids to show the belt region
+        asteroid_bodies = [b for b in self.bodies if b.name.startswith('Asteroid')]
+        for ast in asteroid_bodies[::20]:  # every 20th asteroid = 5 trails
+            self.trail_manager.add_trail(ast, max_points=1500, color=(0.7, 0.6, 0.4), thickness=2.0)
 
     def setup_controls(self):
         """Setup keyboard and mouse controls"""
@@ -414,8 +454,8 @@ class RealisticSolarSystemApp(ShowBase):
 
     def create_planet_menu(self):
         """Create dropdown menu for planet selection"""
-        # Create list of body names
-        body_names = [body.name for body in self.bodies]
+        # Create list of body names (exclude individual asteroids)
+        body_names = [body.name for body in self.bodies if not body.name.startswith('Asteroid')]
 
         # Create dropdown menu
         self.planet_menu = DirectOptionMenu(
