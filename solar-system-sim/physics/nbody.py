@@ -229,26 +229,29 @@ def update_nbody_physics(bodies, dt, size_scale=1.0, sun_scale=1.0):
         # Only update visual if all values are valid
         body.update_visual_position()
 
-    # Collision detection: check if any bodies are too close (using VISUAL radius)
+    # Vectorized collision detection
     collisions = []
     n = len(bodies)
-    for i in range(n):
-        for j in range(i + 1, n):
-            # Calculate distance between bodies (in scaled units)
-            r_vec = bodies[j].position - bodies[i].position
-            distance = np.linalg.norm(r_vec)
+    if n > 1:
+        positions = np.array([body.position for body in bodies])
+        # Pairwise distance matrix
+        diff = positions[np.newaxis, :, :] - positions[:, np.newaxis, :]
+        dist_matrix = np.linalg.norm(diff, axis=2)
 
-            # Sum of VISUAL radii (each body uses its own scale)
-            uses_sun_i = getattr(bodies[i], 'uses_sun_scale', bodies[i].is_emissive)
-            uses_sun_j = getattr(bodies[j], 'uses_sun_scale', bodies[j].is_emissive)
-            scale_i = sun_scale if uses_sun_i else size_scale
-            scale_j = sun_scale if uses_sun_j else size_scale
-            collision_radius = bodies[i].radius * scale_i + bodies[j].radius * scale_j
+        # Build visual radii array
+        visual_radii = np.array([
+            body.radius * (sun_scale if getattr(body, 'uses_sun_scale', body.is_emissive) else size_scale)
+            for body in bodies
+        ])
+        # Collision threshold matrix (sum of visual radii for each pair)
+        threshold = visual_radii[:, np.newaxis] + visual_radii[np.newaxis, :]
 
-            # Check for collision
-            if distance < collision_radius:
-                collisions.append((bodies[i], bodies[j]))
-                print(f"COLLISION DETECTED: {bodies[i].name} and {bodies[j].name} (distance: {distance:.3f}, threshold: {collision_radius:.3f})")
+        # Find collisions (upper triangle only)
+        for i in range(n):
+            for j in range(i + 1, n):
+                if dist_matrix[i, j] < threshold[i, j]:
+                    collisions.append((bodies[i], bodies[j]))
+                    print(f"COLLISION DETECTED: {bodies[i].name} and {bodies[j].name} (distance: {dist_matrix[i,j]:.3f}, threshold: {threshold[i,j]:.3f})")
 
     return collisions
 
@@ -275,15 +278,13 @@ def initialize_circular_orbit_velocity(body, central_mass, central_pos):
     # Orbital speed for circular orbit: v = sqrt(G*M/r) (in m/s)
     v = np.sqrt(G * central_mass / r_meters)
 
-    # Perpendicular direction (in XY plane for now)
-    # Rotate position vector by 90 degrees in XY plane
-    perp = np.array([-r_vec[1], r_vec[0], 0.0])
+    # Perpendicular direction: cross product of r_vec with Z-axis gives
+    # a vector perpendicular to both (prograde orbital direction)
+    z_axis = np.array([0.0, 0.0, 1.0])
+    perp = np.cross(z_axis, r_vec)
     perp_norm = np.linalg.norm(perp)
 
-    # Check if perpendicular vector is valid (not on Z-axis)
     if perp_norm < 1e-10:
-        print(f"WARNING: {body.name} is on Z-axis, using fallback velocity direction")
-        # Use a default perpendicular direction if on Z-axis
         perp = np.array([1.0, 0.0, 0.0])
     else:
         perp = perp / perp_norm

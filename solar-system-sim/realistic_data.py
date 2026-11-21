@@ -158,6 +158,62 @@ PLANETS = {
         'arg_periapsis': math.radians(113.834),
         'color': (0.8, 0.7, 0.6),  # brownish color
         'texture': 'textures/moon.jpg'  # using generic moon texture
+    },
+    'Ceres': {
+        'name': 'Ceres',
+        'mass': 9.3835e20,  # kg (dwarf planet, largest asteroid belt object)
+        'radius': 473.0 * 1e3,  # meters (mean radius)
+        'semi_major_axis': 413.69e9,  # meters (2.766 AU)
+        'eccentricity': 0.0758,
+        'inclination': math.radians(10.594),
+        'orbital_period': 1681.63,  # days (~4.60 years)
+        'rotation_period': 0.3781,  # days (~9.074 hours)
+        'axial_tilt': 4.0,  # degrees
+        'arg_periapsis': math.radians(73.597),
+        'color': (0.6, 0.6, 0.55),  # grayish
+        'texture': 'textures/moon.jpg'
+    },
+    'Eris': {
+        'name': 'Eris',
+        'mass': 1.6466e22,  # kg (most massive dwarf planet)
+        'radius': 1163.0 * 1e3,  # meters
+        'semi_major_axis': 10125.0e9,  # meters (67.67 AU)
+        'eccentricity': 0.4407,  # highly eccentric
+        'inclination': math.radians(44.04),  # highly inclined
+        'orbital_period': 203830,  # days (~558 years)
+        'rotation_period': 1.08,  # days (~25.9 hours)
+        'axial_tilt': 78.0,  # degrees (estimated)
+        'arg_periapsis': math.radians(151.639),
+        'color': (0.85, 0.85, 0.85),  # whitish gray
+        'texture': 'textures/moon.jpg'
+    },
+    'Haumea': {
+        'name': 'Haumea',
+        'mass': 4.006e21,  # kg
+        'radius': 816.0 * 1e3,  # meters (mean, elongated shape)
+        'semi_major_axis': 6452.0e9,  # meters (43.13 AU)
+        'eccentricity': 0.1912,
+        'inclination': math.radians(28.22),
+        'orbital_period': 103774,  # days (~284 years)
+        'rotation_period': 0.1631,  # days (~3.9 hours, fastest spinning large body)
+        'axial_tilt': 126.0,  # degrees (estimated)
+        'arg_periapsis': math.radians(239.041),
+        'color': (0.75, 0.7, 0.65),  # slightly reddish gray
+        'texture': 'textures/moon.jpg'
+    },
+    'Makemake': {
+        'name': 'Makemake',
+        'mass': 3.1e21,  # kg
+        'radius': 715.0 * 1e3,  # meters (mean radius)
+        'semi_major_axis': 6796.0e9,  # meters (45.43 AU)
+        'eccentricity': 0.1559,
+        'inclination': math.radians(28.98),
+        'orbital_period': 111845,  # days (~306 years)
+        'rotation_period': 0.9511,  # days (~22.8 hours)
+        'axial_tilt': 0.0,  # degrees (unknown, assumed 0)
+        'arg_periapsis': math.radians(294.834),
+        'color': (0.7, 0.55, 0.45),  # reddish brown
+        'texture': 'textures/moon.jpg'
     }
 }
 

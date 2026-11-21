@@ -108,8 +108,8 @@ class RealisticSolarSystemApp(ShowBase):
         # Far plane: how far objects can be before being clipped (default ~1000)
         # Balance between close zoom and depth buffer precision (avoid z-fighting)
         # Using more conservative ratio to prevent flickering on small objects
-        self.camLens.setNear(0.01)    # Allow close zoom while preventing z-fighting
-        self.camLens.setFar(5000000)  # Allow seeing whole solar system when zoomed far out
+        self.camLens.setNear(0.1)     # Prevent z-fighting (keep near:far ratio under 1:10M)
+        self.camLens.setFar(1000000)  # Allow seeing whole solar system when zoomed far out
 
         # Start far out to see whole solar system
         self.camera_distance = 500
@@ -146,6 +146,13 @@ class RealisticSolarSystemApp(ShowBase):
             target_pos[2] + z
         )
         self.camera.lookAt(target_pos[0], target_pos[1], target_pos[2])
+
+        # Dynamically adjust near/far clip planes based on zoom distance
+        # Keeps ratio under ~100,000:1 to prevent z-fighting
+        near = max(0.001, self.camera_distance * 0.0001)
+        far = max(1000, self.camera_distance * 100)
+        self.camLens.setNear(near)
+        self.camLens.setFar(far)
 
     def setup_lights(self):
         """Setup scene lighting"""
@@ -264,6 +271,7 @@ class RealisticSolarSystemApp(ShowBase):
         )
         self.sun.rotation_period = sun_data.get('rotation_period', 0)
         self.sun.axial_tilt = sun_data.get('axial_tilt', 0)
+        self.sun.spin_angle = np.random.uniform(0, 360)
         self.sun.create_visual(self, segments=64, rings=32)
         self.bodies.append(self.sun)
         self.body_dict[self.sun.name] = self.sun
@@ -288,6 +296,7 @@ class RealisticSolarSystemApp(ShowBase):
             # Set rotation properties
             planet.rotation_period = planet_data.get('rotation_period', 0)
             planet.axial_tilt = planet_data.get('axial_tilt', 0)
+            planet.spin_angle = np.random.uniform(0, 360)
 
             # Set elliptical orbit parameters
             planet.set_elliptical_orbit(
@@ -338,6 +347,7 @@ class RealisticSolarSystemApp(ShowBase):
             # Set rotation properties
             moon.rotation_period = moon_data.get('rotation_period', 0)
             moon.axial_tilt = moon_data.get('axial_tilt', 0)
+            moon.spin_angle = np.random.uniform(0, 360)
 
             # Set orbit around parent (will need custom update logic)
             moon.set_elliptical_orbit(
@@ -376,6 +386,7 @@ class RealisticSolarSystemApp(ShowBase):
 
             asteroid.rotation_period = ast_data['rotation_period']
             asteroid.axial_tilt = ast_data['axial_tilt']
+            asteroid.spin_angle = np.random.uniform(0, 360)
 
             asteroid.set_elliptical_orbit(
                 semi_major_axis=semi_major_axis,
@@ -454,8 +465,11 @@ class RealisticSolarSystemApp(ShowBase):
 
     def create_planet_menu(self):
         """Create dropdown menu for planet selection"""
-        # Create list of body names (exclude individual asteroids)
+        # Create list of body names (exclude asteroids except first one as representative)
         body_names = [body.name for body in self.bodies if not body.name.startswith('Asteroid')]
+        asteroid_bodies = [body for body in self.bodies if body.name.startswith('Asteroid')]
+        if asteroid_bodies:
+            body_names.append(asteroid_bodies[0].name)
 
         # Create dropdown menu
         self.planet_menu = DirectOptionMenu(
@@ -500,13 +514,15 @@ class RealisticSolarSystemApp(ShowBase):
             # Initialize velocities for N-body
             print("Switched to N-BODY physics mode")
             print("Initializing circular orbit velocities...")
+            # First initialize planets (they orbit the sun)
             for body in self.bodies:
                 if body != self.sun and not hasattr(body, 'parent'):
-                    # Planet orbiting sun
                     nbody.initialize_circular_orbit_velocity(body, self.sun.mass, self.sun.position)
-                elif hasattr(body, 'parent'):
-                    # Moon orbiting planet
+            # Then initialize moons - add parent's velocity so they move WITH their planet
+            for body in self.bodies:
+                if hasattr(body, 'parent'):
                     nbody.initialize_circular_orbit_velocity(body, body.parent.mass, body.parent.position)
+                    body.velocity += body.parent.velocity  # Add parent's orbital velocity
         else:
             self.physics_mode = "SIMPLE"
             print("Switched to SIMPLE physics mode")
@@ -811,8 +827,8 @@ class RealisticSolarSystemApp(ShowBase):
 
         elif self.physics_mode == "NBODY":
             total_dt = dt * self.time_scale * 86400.0
-            max_substep = 100.0
-            max_substeps = 200
+            max_substep = 50.0
+            max_substeps = 50
 
             all_collisions = []
             if total_dt <= max_substep:
