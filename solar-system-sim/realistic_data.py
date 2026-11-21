@@ -214,6 +214,22 @@ PLANETS = {
         'arg_periapsis': math.radians(294.834),
         'color': (0.7, 0.55, 0.45),  # reddish brown
         'texture': 'textures/moon.jpg'
+    },
+    # Dwarf planet CANDIDATE, announced Oct 27, 2026 (found in Vera C. Rubin
+    # Observatory data). Orbit is measured; size, mass and spin are estimates.
+    '2026 ED138': {
+        'name': '2026 ED138',
+        'mass': 4.0e20,  # kg (ESTIMATE: ~800 km wide, assumed icy density 1.5 g/cm^3)
+        'radius': 400.0 * 1e3,  # meters (ESTIMATE: diameter likely 610-970 km)
+        'semi_major_axis': 6446.4e9,  # meters (43.091 AU)
+        'eccentricity': 0.1387,
+        'inclination': math.radians(24.434),
+        'orbital_period': 103250,  # days (~283 years)
+        'rotation_period': 1.18077,  # days (~28.3 hours, tentative)
+        'axial_tilt': 0.0,  # degrees (unknown, assumed 0)
+        'arg_periapsis': math.radians(168.703),
+        'color': (0.72, 0.58, 0.5),  # moderately red (icy, tholin-darkened)
+        'texture': 'textures/moon.jpg'
     }
 }
 
