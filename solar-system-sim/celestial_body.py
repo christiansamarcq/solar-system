@@ -260,6 +260,7 @@ class CelestialBody:
         self.rotation_period = 0.0  # days (negative = retrograde)
         self.axial_tilt = 0.0  # degrees
         self.spin_angle = 0.0  # current rotation angle in degrees
+        self.brightness = 2.0  # colour boost so bodies show up against black space
 
         # Energy flux properties
         self.energy_received = 0.0  # Energy flux from sun
@@ -292,8 +293,10 @@ class CelestialBody:
             try:
                 tex = app.loader.loadTexture(self.texture_path)
                 self.node.setTexture(tex)
-                # Set white color to not tint the texture
+                # Set white color to not tint the texture. Remember it as the
+                # base so the heat-map reset doesn't tint it with self.color.
                 self.node.setColor(1, 1, 1, 1)
+                self.base_color = (1.0, 1.0, 1.0)
             except Exception as e:
                 print(f"Warning: Could not load texture {self.texture_path}: {e}")
                 # Fallback to solid color
@@ -310,7 +313,8 @@ class CelestialBody:
             self.node.setColorScale(1.5, 1.5, 1.2, 1)  # Extra bright yellow-white
         else:
             # For planets/moons, increase base brightness to make them visible against black space
-            self.node.setColorScale(2.0, 2.0, 2.0, 1)
+            b = self.brightness
+            self.node.setColorScale(b, b, b, 1)
 
         # Set initial position
         self.update_visual_position()

@@ -329,6 +329,7 @@ class RealisticSolarSystemApp(ShowBase):
             # Set rotation properties
             planet.rotation_period = planet_data.get('rotation_period', 0)
             planet.axial_tilt = planet_data.get('axial_tilt', 0)
+            planet.brightness = planet_data.get('brightness', 2.0)
             planet.spin_angle = np.random.uniform(0, 360)
 
             # Set elliptical orbit parameters
@@ -873,7 +874,7 @@ class RealisticSolarSystemApp(ShowBase):
 
             # Make planets brighter as they get bigger (easier to see)
             if not body.is_emissive:
-                brightness = min(4.0, 2.0 + (new_scale / 2500.0))
+                brightness = min(4.0, body.brightness + (new_scale / 2500.0))
                 body.node.setColorScale(brightness, brightness, brightness, 1)
 
         print(f"Planet size scale: {new_scale:.1f}x ({'realistic' if new_scale == 1.0 else 'exaggerated'})")

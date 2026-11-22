@@ -59,7 +59,8 @@ PLANETS = {
         'axial_tilt': 177.4,  # degrees (nearly upside down, retrograde)
         'arg_periapsis': math.radians(54.884),
         'color': (0.9, 0.8, 0.6),
-        'texture': 'textures/venus.jpg'
+        'texture': 'textures/venus_clouds.jpg',  # cloud tops; venus.jpg is the hidden radar surface
+        'brightness': 1.05  # pale clouds: the default 2x boost would wash them out to plain white
     },
     'Earth': {
         'name': 'Earth',
