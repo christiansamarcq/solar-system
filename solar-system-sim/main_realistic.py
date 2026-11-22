@@ -86,7 +86,9 @@ class RealisticSolarSystemApp(ShowBase):
         print()
         print("CAMERA CONTROLS:")
         print("  Mouse drag          - Rotate camera around tracked body")
-        print("  Mouse wheel         - Zoom in/out")
+        print("  Mouse wheel         - Zoom in/out (hold Shift for fine steps)")
+        print("  Up / Down arrows    - Hold to zoom in/out smoothly")
+        print("  F                   - Frame tracked body (zoom to fit)")
         print("  Planet menu (top left) - Select body to track (Sun default)")
         print()
         print("SIMULATION CONTROLS:")
@@ -118,6 +120,9 @@ class RealisticSolarSystemApp(ShowBase):
 
         # Start far out to see whole solar system
         self.camera_distance = 500
+        # Zoom eases toward this distance each frame (see _update_zoom)
+        self.target_camera_distance = 500
+        self.zoom_keys = {'in': False, 'out': False}
         self.camera_angle_h = 0
         self.camera_angle_v = 30
 
@@ -152,8 +157,12 @@ class RealisticSolarSystemApp(ShowBase):
 
         # Dynamically adjust near/far clip planes based on zoom distance
         # Keeps ratio under ~100,000:1 to prevent z-fighting
-        near = max(0.001, self.camera_distance * 0.0001)
-        far = max(1000, self.camera_distance * 100)
+        # Near plane follows the tracked body's surface so even tiny bodies can
+        # be viewed up close. The depth buffer breaks down (bodies vanish) once
+        # far/near exceeds ~1e7, so the far plane is capped to that ratio.
+        surface_gap = max(self.camera_distance - self._tracked_visual_radius(), 0.0)
+        near = max(1e-7, 0.05 * surface_gap)
+        far = min(max(1000, self.camera_distance * 100), near * 1e7)
         self.camLens.setNear(near)
         self.camLens.setFar(far)
 
@@ -463,6 +472,15 @@ class RealisticSolarSystemApp(ShowBase):
         self.accept('mouse1-up', self.stop_camera_drag)
         self.accept('wheel_up', self.zoom_in)
         self.accept('wheel_down', self.zoom_out)
+        self.accept('shift-wheel_up', self.zoom_in, [0.95])
+        self.accept('shift-wheel_down', self.zoom_out, [0.95])
+
+        # Hold arrow keys for continuous zoom; F frames the tracked body
+        self.accept('arrow_up', self.zoom_keys.__setitem__, ['in', True])
+        self.accept('arrow_up-up', self.zoom_keys.__setitem__, ['in', False])
+        self.accept('arrow_down', self.zoom_keys.__setitem__, ['out', True])
+        self.accept('arrow_down-up', self.zoom_keys.__setitem__, ['out', False])
+        self.accept('f', self.frame_tracked_body)
 
     def start_camera_drag(self):
         """Start camera rotation"""
@@ -475,15 +493,54 @@ class RealisticSolarSystemApp(ShowBase):
         """Stop camera rotation"""
         self.mouse_dragging = False
 
-    def zoom_in(self):
-        """Zoom camera in"""
-        self.camera_distance = max(0.01, self.camera_distance * 0.9)
-        self.update_camera_position()
+    MAX_CAMERA_DISTANCE = 1000000
 
-    def zoom_out(self):
+    def _tracked_visual_radius(self):
+        """Radius of the tracked body as drawn (includes the size sliders)"""
+        body = self.tracked_body
+        if body is None:
+            return 0.0
+        uses_sun = getattr(body, 'uses_sun_scale', body.is_emissive)
+        return body.radius * (self._get_sun_scale() if uses_sun else self.size_scale)
+
+    def _min_camera_distance(self):
+        """Closest zoom: just outside the tracked body's surface"""
+        return max(1e-5, self._tracked_visual_radius() * 1.2)
+
+    def _set_zoom_target(self, distance):
+        self.target_camera_distance = min(self.MAX_CAMERA_DISTANCE,
+                                          max(self._min_camera_distance(), distance))
+
+    def zoom_in(self, factor=0.8):
+        """Zoom camera in (each wheel step moves 20% closer)"""
+        self._set_zoom_target(self.target_camera_distance * factor)
+
+    def zoom_out(self, factor=0.8):
         """Zoom camera out"""
-        self.camera_distance = min(1000000, self.camera_distance * 1.1)
-        self.update_camera_position()
+        self._set_zoom_target(self.target_camera_distance / factor)
+
+    def frame_tracked_body(self):
+        """Zoom so the tracked body fills a comfortable part of the screen"""
+        if self.tracked_body == self.sun:
+            self._set_zoom_target(max(50, self._tracked_visual_radius() * 5))
+        else:
+            self._set_zoom_target(self._tracked_visual_radius() * 4)
+
+    def _update_zoom(self, dt):
+        """Hold-to-zoom keys, plus smooth easing toward the target distance"""
+        dt = min(dt, 0.1)
+        # If the body grew (size sliders), back the camera out of it
+        if self.target_camera_distance < self._min_camera_distance():
+            self._set_zoom_target(self.target_camera_distance)
+        if self.zoom_keys['in']:
+            self.zoom_in(0.33 ** dt)   # ~3x closer per second
+        if self.zoom_keys['out']:
+            self.zoom_out(0.33 ** dt)
+        # Ease in log space so zooming feels the same at every scale
+        current = math.log(self.camera_distance)
+        target = math.log(self.target_camera_distance)
+        blend = 1.0 - math.exp(-12.0 * dt)
+        self.camera_distance = math.exp(current + (target - current) * blend)
 
     def create_planet_menu(self):
         """Create dropdown menu for planet selection"""
@@ -510,19 +567,11 @@ class RealisticSolarSystemApp(ShowBase):
         if selected_name in self.body_dict:
             self.tracked_body = self.body_dict[selected_name]
 
-            # Auto-zoom based on body size
-            body_radius = self.tracked_body.radius * self.size_scale
-
-            if self.tracked_body == self.sun:
-                # Zoom out to see sun comfortably
-                self.camera_distance = max(50, body_radius * 5)
-            else:
-                # Zoom in to see planets/moons (planets are tiny at realistic scale)
-                # At realistic scale, need to zoom very close
-                self.camera_distance = max(1, body_radius * 10)
-
+            # Auto-zoom so the body is nicely framed, however small it is
+            self.frame_tracked_body()
+            self.camera_distance = self.target_camera_distance
             self.update_camera_position()
-            print(f"Now tracking: {selected_name} (distance: {self.camera_distance:.2f} units)")
+            print(f"Now tracking: {selected_name} (distance: {self.camera_distance:.3g} units)")
 
     def toggle_pause(self):
         """Toggle simulation pause"""
@@ -603,6 +652,7 @@ class RealisticSolarSystemApp(ShowBase):
         # Reset camera to track sun
         self.tracked_body = self.sun
         self.camera_distance = 50.0
+        self.target_camera_distance = 50.0
         self.update_camera_position()
 
         # Update control panel sliders to default values
@@ -812,6 +862,7 @@ class RealisticSolarSystemApp(ShowBase):
                 self.trail_manager.update()
 
         # Update camera to follow tracked body (even when paused, for manual rotation)
+        self._update_zoom(dt)
         self.update_camera_position()
 
         return task.cont

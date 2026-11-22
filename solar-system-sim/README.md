@@ -36,6 +36,9 @@ python main.py
 - **Mouse Drag**: Rotate camera around the solar system
 - **Mouse Wheel Up**: Zoom in
 - **Mouse Wheel Down**: Zoom out
+- **Shift + Mouse Wheel**: Zoom in small steps
+- **Up / Down Arrows**: Hold to zoom in/out smoothly
+- **F**: Frame the tracked body (zoom to fit)
 
 ### Simulation
 - **Space**: Pause/Unpause simulation
