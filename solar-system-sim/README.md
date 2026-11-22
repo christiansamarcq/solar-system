@@ -37,6 +37,8 @@ python main.py
 - **Mouse Wheel Up**: Zoom in
 - **Mouse Wheel Down**: Zoom out
 - **Shift + Mouse Wheel**: Zoom in small steps
+- **Touchpad**: Two-finger scroll or pinch to zoom
+- **- / Fit / + buttons** (control panel): Hold - or + to zoom, Fit to frame the tracked body
 - **Up / Down Arrows**: Hold to zoom in/out smoothly
 - **F**: Frame the tracked body (zoom to fit)
 

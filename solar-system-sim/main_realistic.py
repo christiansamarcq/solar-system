@@ -87,6 +87,8 @@ class RealisticSolarSystemApp(ShowBase):
         print("CAMERA CONTROLS:")
         print("  Mouse drag          - Rotate camera around tracked body")
         print("  Mouse wheel         - Zoom in/out (hold Shift for fine steps)")
+        print("  Touchpad            - Two-finger scroll or pinch to zoom")
+        print("  Zoom buttons        - Hold - / + in the control panel")
         print("  Up / Down arrows    - Hold to zoom in/out smoothly")
         print("  F                   - Frame tracked body (zoom to fit)")
         print("  Planet menu (top left) - Select body to track (Sun default)")
@@ -470,10 +472,15 @@ class RealisticSolarSystemApp(ShowBase):
         # Mouse camera controls
         self.accept('mouse1', self.start_camera_drag)
         self.accept('mouse1-up', self.stop_camera_drag)
-        self.accept('wheel_up', self.zoom_in)
-        self.accept('wheel_down', self.zoom_out)
-        self.accept('shift-wheel_up', self.zoom_in, [0.95])
-        self.accept('shift-wheel_down', self.zoom_out, [0.95])
+        # Wheel / touchpad. Windows sends touchpad two-finger scroll as a fast
+        # stream of small wheel events, and pinch as Ctrl + wheel, which
+        # Panda3D reports as 'control-wheel_up' / 'control-wheel_down'.
+        for prefix in ('', 'control-', 'alt-'):
+            self.accept(prefix + 'wheel_up', self.on_wheel, [1, False])
+            self.accept(prefix + 'wheel_down', self.on_wheel, [-1, False])
+        self.accept('shift-wheel_up', self.on_wheel, [1, True])
+        self.accept('shift-wheel_down', self.on_wheel, [-1, True])
+        self._last_wheel_time = -1.0
 
         # Hold arrow keys for continuous zoom; F frames the tracked body
         self.accept('arrow_up', self.zoom_keys.__setitem__, ['in', True])
@@ -484,7 +491,8 @@ class RealisticSolarSystemApp(ShowBase):
 
     def start_camera_drag(self):
         """Start camera rotation"""
-        if self.mouseWatcherNode.hasMouse():
+        # Ignore clicks on the GUI (buttons, sliders) so they don't spin the camera
+        if self.mouseWatcherNode.hasMouse() and not self.mouseWatcherNode.isOverRegion():
             self.mouse_dragging = True
             self.last_mouse_x = self.mouseWatcherNode.getMouseX()
             self.last_mouse_y = self.mouseWatcherNode.getMouseY()
@@ -510,6 +518,27 @@ class RealisticSolarSystemApp(ShowBase):
     def _set_zoom_target(self, distance):
         self.target_camera_distance = min(self.MAX_CAMERA_DISTANCE,
                                           max(self._min_camera_distance(), distance))
+
+    def on_wheel(self, direction, fine):
+        """Wheel or touchpad zoom step (direction +1 = in, -1 = out).
+
+        A mouse wheel sends one event per notch, so each moves 20%. A touchpad
+        sends many events close together; those are treated as a continuous
+        gesture with small 4% steps so it zooms smoothly instead of racing.
+        """
+        now = globalClock.getRealTime()
+        streaming = (now - self._last_wheel_time) < 0.06
+        self._last_wheel_time = now
+        if fine:
+            factor = 0.95
+        elif streaming:
+            factor = 0.96
+        else:
+            factor = 0.8
+        if direction > 0:
+            self.zoom_in(factor)
+        else:
+            self.zoom_out(factor)
 
     def zoom_in(self, factor=0.8):
         """Zoom camera in (each wheel step moves 20% closer)"""

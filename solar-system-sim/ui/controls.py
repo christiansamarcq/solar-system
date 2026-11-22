@@ -3,7 +3,7 @@ UI controls using Panda3D's DirectGUI
 Provides sliders and buttons for parameter adjustment
 """
 
-from direct.gui.DirectGui import DirectSlider, DirectButton, DirectLabel, DirectFrame
+from direct.gui.DirectGui import DirectSlider, DirectButton, DirectLabel, DirectFrame, DGG
 from panda3d.core import TextNode
 
 
@@ -23,7 +23,7 @@ class ControlPanel:
         # Create background panel (expanded to fit size slider and new buttons)
         self.panel = DirectFrame(
             frameColor=(0.1, 0.1, 0.1, 0.8),
-            frameSize=(-0.3, 0.3, -0.7, 0.5),
+            frameSize=(-0.3, 0.3, -0.8, 0.5),
             pos=(0.85, 0, 0)
         )
 
@@ -163,11 +163,24 @@ class ControlPanel:
             frameColor=(0.5, 0.3, 0.7, 1)
         )
 
+        # Zoom buttons: hold - / + to zoom (handy on a touchpad), Fit frames the body
+        self.zoom_out_button = self._make_hold_button("-", -0.17, 'out')
+        self.fit_button = DirectButton(
+            text="Fit",
+            scale=0.055,
+            pos=(0, 0, -0.68),
+            parent=self.panel,
+            command=self.app.frame_tracked_body,
+            text_fg=(1, 1, 1, 1),
+            frameColor=(0.3, 0.5, 0.6, 1)
+        )
+        self.zoom_in_button = self._make_hold_button("+", 0.17, 'in')
+
         # Hide panel button (small, moved to bottom)
         self.hide_button = DirectButton(
             text="Hide UI",
             scale=0.04,
-            pos=(0, 0, -0.65),
+            pos=(0, 0, -0.76),
             parent=self.panel,
             command=self.toggle_visibility,
             text_fg=(0.7, 0.7, 0.7, 1),
@@ -240,6 +253,23 @@ class ControlPanel:
     def on_reset(self):
         """Reset the simulation"""
         self.app.reset_simulation()
+
+    def _make_hold_button(self, label, x, direction):
+        """Button that zooms continuously while the mouse button is held on it"""
+        button = DirectButton(
+            text=label,
+            scale=0.065,
+            pad=(0.5, 0.15),
+            pos=(x, 0, -0.68),
+            parent=self.panel,
+            text_fg=(1, 1, 1, 1),
+            frameColor=(0.3, 0.5, 0.6, 1)
+        )
+        button.bind(DGG.B1PRESS, lambda _evt: self.app.zoom_keys.__setitem__(direction, True))
+        button.bind(DGG.B1RELEASE, lambda _evt: self.app.zoom_keys.__setitem__(direction, False))
+        # Also stop if the pointer slides off the button while held
+        button.bind(DGG.EXIT, lambda _evt: self.app.zoom_keys.__setitem__(direction, False))
+        return button
 
     def toggle_visibility(self):
         """Show/hide the control panel"""
