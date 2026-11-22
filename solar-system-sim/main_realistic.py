@@ -403,7 +403,7 @@ class RealisticSolarSystemApp(ShowBase):
 
         # Create asteroid belt
         asteroids = rd.generate_asteroid_belt(count=100)
-        for ast_data in asteroids:
+        for ast_index, ast_data in enumerate(asteroids):
             # Use a visible minimum radius (real asteroids are too tiny to see)
             radius = max(rd.get_scaled_radius(ast_data['radius']), 0.002)
             semi_major_axis = rd.get_scaled_distance(ast_data['semi_major_axis'])
@@ -430,8 +430,9 @@ class RealisticSolarSystemApp(ShowBase):
                 phase=ast_data['phase']
             )
 
-            # Low-poly visuals for performance
-            asteroid.create_visual(self, segments=8, rings=4)
+            # Irregular rocky shape, different for each asteroid
+            asteroid.shape_seed = ast_index
+            asteroid.create_visual(self)
             self.bodies.append(asteroid)
             self.body_dict[asteroid.name] = asteroid
 

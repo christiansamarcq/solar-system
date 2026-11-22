@@ -90,6 +90,125 @@ def create_sphere_geometry(radius=1.0, segments=32, rings=16):
     return node
 
 
+def create_asteroid_geometry(radius=1.0, seed=0, segments=48, rings=24):
+    """
+    Create an irregular, potato-shaped rock with craters and lumps.
+
+    Starts from a UV sphere and pushes each vertex in or out:
+      - uneven axes (a, b, c) so it is elongated / flattened, not round
+      - broad lumps and dents for a lopsided outline
+      - bowl-shaped craters with slightly raised rims
+      - many small bumps for a rough, rocky surface
+    The displacement depends only on direction, so the texture seam and the
+    poles stay closed. Normals are recomputed from the bumpy surface so the
+    sun light picks out the craters.
+
+    Args:
+        radius (float): Mean radius of the rock
+        seed (int): Each seed gives a different, repeatable shape
+        segments (int): Horizontal detail
+        rings (int): Vertical detail
+
+    Returns:
+        GeomNode: A geometry node containing the asteroid
+    """
+    rng = np.random.default_rng(seed)
+
+    # Unit directions on a (rings+1) x (segments+1) grid
+    theta = np.linspace(0, math.pi, rings + 1)[:, None]
+    phi = np.linspace(0, 2 * math.pi, segments + 1)[None, :]
+    dirs = np.stack([
+        np.sin(theta) * np.cos(phi),
+        np.sin(theta) * np.sin(phi),
+        np.cos(theta) * np.ones_like(phi),
+    ], axis=-1)                                   # shape (R, S, 3)
+
+    # 1) Uneven axes: long, medium, short
+    axes = np.array([1.0, rng.uniform(0.5, 0.85), rng.uniform(0.35, 0.7)])
+    axes /= np.cbrt(np.prod(axes))                # keep the same volume as the sphere
+
+    # 2) Broad lumps and dents
+    r = np.ones(dirs.shape[:2])
+    for _ in range(rng.integers(8, 14)):
+        center = rng.normal(size=3); center /= np.linalg.norm(center)
+        width = rng.uniform(0.3, 0.9)             # angular size (radians)
+        height = rng.uniform(-0.25, 0.25)
+        ang = np.arccos(np.clip(dirs @ center, -1, 1))
+        r += height * np.exp(-(ang / width) ** 2)
+
+    # 3) Craters: a dip in the middle with a slightly raised rim
+    for _ in range(rng.integers(6, 12)):
+        center = rng.normal(size=3); center /= np.linalg.norm(center)
+        size = rng.uniform(0.22, 0.5)
+        depth = rng.uniform(0.08, 0.18) * (size / 0.5) ** 0.5
+        x = np.arccos(np.clip(dirs @ center, -1, 1)) / size
+        r += np.where(x < 1.0, -depth * (1 - x ** 2), 0.0)
+        r += np.where((x >= 1.0) & (x < 1.6), depth * 0.35 * np.sin((x - 1.0) / 0.6 * math.pi), 0.0)
+
+    # 4) Small bumps all over for a rough, rocky texture. They are kept wider
+    #    than the mesh spacing (~0.13 rad); narrower ones alias into spikes.
+    for _ in range(40):
+        center = rng.normal(size=3); center /= np.linalg.norm(center)
+        width = rng.uniform(0.16, 0.3)
+        height = rng.uniform(-0.045, 0.045)
+        ang = np.arccos(np.clip(dirs @ center, -1, 1))
+        r += height * np.exp(-(ang / width) ** 2)
+
+    r = np.maximum(r, 0.3)                        # never fold inside out
+    pos = dirs * axes * r[..., None] * radius     # (R, S, 3)
+
+    # Normals from the surface: cross product of neighbouring grid directions
+    seg_next = np.roll(pos[:, :-1], -1, axis=1)
+    seg_prev = np.roll(pos[:, :-1], 1, axis=1)
+    d_phi = np.concatenate([seg_next - seg_prev, (seg_next - seg_prev)[:, :1]], axis=1)
+    d_theta = np.empty_like(pos)
+    d_theta[1:-1] = pos[2:] - pos[:-2]
+    d_theta[0] = pos[1] - pos[0]
+    d_theta[-1] = pos[-1] - pos[-2]
+    normals = np.cross(d_theta, d_phi)
+    lengths = np.linalg.norm(normals, axis=-1, keepdims=True)
+    # Poles are degenerate on a UV sphere: fall back to the radial direction
+    normals = np.where(lengths > 1e-12, normals / np.maximum(lengths, 1e-12), dirs)
+    # At each pole use the average of the ring next to it, which follows the
+    # bumpy surface there (a fixed up/down normal lights the pole wrongly)
+    for pole, ring_next in ((0, 1), (-1, -2)):
+        avg = normals[ring_next, :-1].mean(axis=0)
+        normals[pole, :] = avg / max(np.linalg.norm(avg), 1e-12)
+    # Make sure every normal points outward
+    flip = np.sum(normals * dirs, axis=-1) < 0
+    normals[flip] *= -1
+
+    format = GeomVertexFormat.getV3n3t2()
+    vdata = GeomVertexData('asteroid', format, Geom.UHStatic)
+    vertex = GeomVertexWriter(vdata, 'vertex')
+    normal = GeomVertexWriter(vdata, 'normal')
+    texcoord = GeomVertexWriter(vdata, 'texcoord')
+    for ring in range(rings + 1):
+        for seg in range(segments + 1):
+            p = pos[ring, seg]
+            n = normals[ring, seg]
+            vertex.addData3(p[0], p[1], p[2])
+            normal.addData3(n[0], n[1], n[2])
+            texcoord.addData2(seg / segments, ring / rings)
+
+    tris = GeomTriangles(Geom.UHStatic)
+    for ring in range(rings):
+        for seg in range(segments):
+            current = ring * (segments + 1) + seg
+            next_seg = current + 1
+            next_ring = current + segments + 1
+            next_ring_next = next_ring + 1
+            tris.addVertices(current, next_ring, next_seg)
+            tris.addVertices(next_seg, next_ring, next_ring_next)
+    tris.closePrimitive()
+
+    geom = Geom(vdata)
+    geom.addPrimitive(tris)
+    node = GeomNode('asteroid')
+    node.addGeom(geom)
+    return node
+
+
 class CelestialBody:
     """Represents a celestial body (sun, planet, moon) in the simulation"""
 
@@ -158,8 +277,12 @@ class CelestialBody:
             segments (int): Horizontal detail (more = smoother)
             rings (int): Vertical detail (more = smoother)
         """
-        # Create high-resolution sphere geometry
-        sphere_geom = create_sphere_geometry(radius=self.radius, segments=segments, rings=rings)
+        # Irregular rock for asteroids, smooth sphere for everything else
+        shape_seed = getattr(self, 'shape_seed', None)
+        if shape_seed is not None:
+            sphere_geom = create_asteroid_geometry(radius=self.radius, seed=shape_seed)
+        else:
+            sphere_geom = create_sphere_geometry(radius=self.radius, segments=segments, rings=rings)
 
         # Attach to scene
         self.node = app.render.attachNewNode(sphere_geom)
