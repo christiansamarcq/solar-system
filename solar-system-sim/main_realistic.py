@@ -47,6 +47,11 @@ class RealisticSolarSystemApp(ShowBase):
         self.control_panel = None
         self.planet_menu = None
 
+        # Floating-origin root: the sun's light and explosions hang off
+        # this node, which is shifted by -origin each frame (see _apply_render_origin)
+        self.world_root = self.render.attachNewNode('world_root')
+        self.starfield = None
+
         # Setup
         self.setup_camera()
         self.setup_lights()
@@ -124,11 +129,9 @@ class RealisticSolarSystemApp(ShowBase):
 
     def update_camera_position(self):
         """Update camera position based on angles and distance"""
-        # Get target position (tracked body or origin)
-        if self.tracked_body is not None:
-            target_pos = self.tracked_body.position
-        else:
-            target_pos = np.array([0.0, 0.0, 0.0])
+        self._apply_render_origin()
+        # Target is the render origin, so it sits at (0, 0, 0) in scene space
+        target_pos = np.array([0.0, 0.0, 0.0])
 
         # Convert to radians
         h_rad = math.radians(self.camera_angle_h)
@@ -154,6 +157,25 @@ class RealisticSolarSystemApp(ShowBase):
         self.camLens.setNear(near)
         self.camLens.setFar(far)
 
+        # Keep the starfield centred on the camera and inside the far plane,
+        # so it never gets clipped away when zoomed in
+        if self.starfield is not None:
+            self.starfield.setPos(self.camera.getPos())
+            self.starfield.setScale(far * 0.5 / 50000.0)
+
+    def _apply_render_origin(self):
+        """Re-centre the scene on the tracked body (floating origin)"""
+        if self.tracked_body is not None:
+            origin = np.array(self.tracked_body.position, dtype=np.float64)
+        else:
+            origin = np.zeros(3)
+        CelestialBody.render_origin = origin
+        for body in self.bodies:
+            body.update_visual_position()
+        self.world_root.setPos(-origin[0], -origin[1], -origin[2])
+        if self.trail_manager:
+            self.trail_manager.apply_origin(origin)
+
     def setup_lights(self):
         """Setup scene lighting"""
         # Very minimal ambient light for dark space
@@ -165,7 +187,7 @@ class RealisticSolarSystemApp(ShowBase):
         # Point light at sun
         plight = PointLight('sunlight')
         plight.setColor((1, 1, 0.9, 1))
-        plnp = self.render.attachNewNode(plight)
+        plnp = self.world_root.attachNewNode(plight)
         plnp.setPos(0, 0, 0)
         self.render.setLight(plnp)
 
@@ -716,7 +738,7 @@ class RealisticSolarSystemApp(ShowBase):
         from direct.interval.IntervalGlobal import Sequence, Parallel, LerpScaleInterval, LerpColorScaleInterval, Func
 
         # Create explosion sphere
-        explosion_node = self.render.attachNewNode("explosion")
+        explosion_node = self.world_root.attachNewNode("explosion")
         explosion_node.setPos(Point3(position[0], position[1], position[2]))
 
         # Create sphere geometry for explosion

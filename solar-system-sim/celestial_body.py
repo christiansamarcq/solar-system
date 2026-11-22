@@ -93,6 +93,13 @@ def create_sphere_geometry(radius=1.0, segments=32, rings=16):
 class CelestialBody:
     """Represents a celestial body (sun, planet, moon) in the simulation"""
 
+    # Floating origin: visuals are drawn relative to this point (usually the
+    # tracked body). Panda3D stores positions as 32-bit floats, which at
+    # thousands of units from the Sun can't resolve objects smaller than
+    # ~0.0005 units, so far-out bodies jitter and tear. Subtracting the
+    # origin here in 64-bit numpy keeps everything near the camera precise.
+    render_origin = np.zeros(3)
+
     def __init__(self, name, mass, radius, color, position=None, velocity=None, is_emissive=False, texture_path=None):
         """
         Initialize a celestial body
@@ -188,7 +195,8 @@ class CelestialBody:
     def update_visual_position(self):
         """Update the 3D model position and rotation to match physics"""
         if self.node:
-            self.node.setPos(self.position[0], self.position[1], self.position[2])
+            rel = self.position - CelestialBody.render_origin
+            self.node.setPos(rel[0], rel[1], rel[2])
             # Apply axial tilt (pitch) and spin (heading)
             # H = spin around axis, P = axial tilt, R = 0
             self.node.setHpr(self.spin_angle, self.axial_tilt, 0)

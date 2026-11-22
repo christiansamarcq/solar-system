@@ -7,6 +7,17 @@ from panda3d.core import LineSegs, NodePath
 from collections import deque
 import numpy as np
 
+# Floating origin (see CelestialBody.render_origin). Each trail's vertices are
+# stored relative to an anchor point near its body, and the node is placed at
+# anchor - origin, computed in 64-bit numpy, so trails line up with bodies
+# precisely even far from the Sun.
+_render_origin = np.zeros(3)
+
+
+def _place(node, anchor):
+    rel = anchor - _render_origin
+    node.setPos(rel[0], rel[1], rel[2])
+
 
 class TrailRenderer:
     """Renders orbital trails for a celestial body"""
@@ -81,6 +92,8 @@ class TrailRenderer:
 
         # Set color with fade effect (older points are more transparent)
         num_points = len(self.positions)
+        # Anchor at the newest point so the part of the trail near the body is precise
+        self.anchor = np.array(self.positions[-1], dtype=np.float64)
 
         # Draw line segments
         for i in range(num_points - 1):
@@ -95,15 +108,16 @@ class TrailRenderer:
                 fade  # Full opacity for maximum visibility
             )
 
-            # Draw line segment
-            p1 = self.positions[i]
-            p2 = self.positions[i + 1]
+            # Draw line segment (relative to anchor)
+            p1 = self.positions[i] - self.anchor
+            p2 = self.positions[i + 1] - self.anchor
 
             self.line_segs.moveTo(p1[0], p1[1], p1[2])
             self.line_segs.drawTo(p2[0], p2[1], p2[2])
 
         # Create node and attach to scene
         self.line_node = render.attachNewNode(self.line_segs.create())
+        _place(self.line_node, self.anchor)
         # Make trails unaffected by lighting for maximum brightness
         self.line_node.setLightOff()
         # Increase brightness with color scale for better visibility
@@ -172,13 +186,15 @@ class GroupTrailRenderer:
         self.line_segs.setThickness(self.thickness)
         self.line_segs.setColor(self.color[0], self.color[1], self.color[2], 1)
 
+        self.anchor = np.array(self.positions[-1], dtype=np.float64)
         for i in range(len(self.positions) - 1):
-            p1 = self.positions[i]
-            p2 = self.positions[i + 1]
+            p1 = self.positions[i] - self.anchor
+            p2 = self.positions[i + 1] - self.anchor
             self.line_segs.moveTo(p1[0], p1[1], p1[2])
             self.line_segs.drawTo(p2[0], p2[1], p2[2])
 
         self.line_node = render.attachNewNode(self.line_segs.create())
+        _place(self.line_node, self.anchor)
         self.line_node.setLightOff()
         self.line_node.setColorScale(1.5, 1.5, 1.5, 1)
 
@@ -251,6 +267,17 @@ class TrailManager:
             trail.update(self.render)
         if self.group_trail:
             self.group_trail.update(self.render)
+
+    def apply_origin(self, origin):
+        """Re-place all trail nodes for a new floating origin"""
+        global _render_origin
+        _render_origin = np.array(origin, dtype=np.float64)
+        renderers = list(self.trails.values())
+        if self.group_trail:
+            renderers.append(self.group_trail)
+        for trail in renderers:
+            if trail.line_node is not None:
+                _place(trail.line_node, trail.anchor)
 
     def clear_all(self):
         """Clear all trails"""
