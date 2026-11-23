@@ -8,7 +8,7 @@ A real-time 3D visualization of a solar system built with Panda3D, featuring swi
 - Real-time 3D rendering of sun and planets
 - Interactive camera controls (orbit, zoom)
 - Simple orbital mechanics (circular orbits)
-- Time scale control (speed up/slow down)
+- Time scale control (speed up/slow down; 1x = 1 simulated day per second)
 - Pause functionality
 
 ### Planned
@@ -44,8 +44,8 @@ python main.py
 
 ### Simulation
 - **Space**: Pause/Unpause simulation
-- **+/=**: Increase time scale (speed up)
-- **-**: Decrease time scale (slow down)
+- **+/=**: Speed up time (doubles it; starts at 1 day per second, so Earth orbits in ~6 minutes)
+- **-**: Slow down time (halves it)
 - **ESC**: Quit
 
 ## Project Structure

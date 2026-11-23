@@ -12,7 +12,7 @@ import math
 from celestial_body import CelestialBody, create_sphere_geometry
 from physics import nbody
 from rendering.trail_renderer import TrailManager
-from ui.controls import ControlPanel
+from ui.controls import ControlPanel, format_time_rate
 import realistic_data as rd
 
 
@@ -24,7 +24,7 @@ class RealisticSolarSystemApp(ShowBase):
 
         # Simulation parameters
         self.time = 0.0
-        self.time_scale = 1.0  # Speed multiplier (realtime = 1.0 second per second)
+        self.time_scale = 1.0  # Simulated days per real second (1.0 = 1 day/s, Earth year ~6 min)
         self.paused = False
         self.physics_mode = "SIMPLE"  # "SIMPLE" or "NBODY"
         self.energy_vis_enabled = False  # Energy flux visualization
@@ -95,7 +95,7 @@ class RealisticSolarSystemApp(ShowBase):
         print()
         print("SIMULATION CONTROLS:")
         print("  Space               - Pause/Unpause")
-        print("  + / -               - Increase/Decrease time scale")
+        print("  + / -               - Speed up / slow down time (starts at 1 day per second)")
         print("  M                   - Toggle physics mode (SIMPLE/N-BODY)")
         print("  T                   - Toggle orbital trails")
         print("  C                   - Clear trails")
@@ -460,9 +460,9 @@ class RealisticSolarSystemApp(ShowBase):
         """Setup keyboard and mouse controls"""
         # Keyboard
         self.accept('space', self.toggle_pause)
-        self.accept('+', lambda: setattr(self, 'time_scale', min(1000.0, self.time_scale * 2.0)))
-        self.accept('=', lambda: setattr(self, 'time_scale', min(1000.0, self.time_scale * 2.0)))
-        self.accept('-', lambda: setattr(self, 'time_scale', max(0.1, self.time_scale / 2.0)))
+        self.accept('+', self.change_time_scale, [2.0])
+        self.accept('=', self.change_time_scale, [2.0])
+        self.accept('-', self.change_time_scale, [0.5])
         self.accept('m', self.toggle_physics_mode)
         self.accept('t', self.toggle_trails)
         self.accept('c', self.clear_trails)
@@ -604,6 +604,14 @@ class RealisticSolarSystemApp(ShowBase):
             self.update_camera_position()
             print(f"Now tracking: {selected_name} (distance: {self.camera_distance:.3g} units)")
 
+    def change_time_scale(self, factor):
+        """Speed time up or down (keyboard + / -), keeping the slider and label in sync"""
+        self.time_scale = min(1000.0, max(0.1, self.time_scale * factor))
+        if self.control_panel:
+            # Moving the slider runs on_time_scale_changed, which updates the label
+            self.control_panel.time_slider['value'] = self.time_scale
+        print(format_time_rate(self.time_scale))
+
     def toggle_pause(self):
         """Toggle simulation pause"""
         self.paused = not self.paused
@@ -688,8 +696,7 @@ class RealisticSolarSystemApp(ShowBase):
 
         # Update control panel sliders to default values
         if self.control_panel:
-            self.control_panel.time_slider['value'] = 1.0
-            self.control_panel.time_label['text'] = "Time Scale: 1.0x"
+            self.control_panel.time_slider['value'] = 1.0  # also updates the speed label
             self.control_panel.size_slider['value'] = 1.0
             self.control_panel.size_label['text'] = "Planet Size: 1.0x"
             self.control_panel.sun_rate_slider['value'] = 1.0

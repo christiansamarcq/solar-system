@@ -4,6 +4,24 @@ Provides sliders and buttons for parameter adjustment
 """
 
 from direct.gui.DirectGui import DirectSlider, DirectButton, DirectLabel, DirectFrame, DGG
+
+
+def format_time_rate(time_scale):
+    """Describe a time scale as simulated time per real second.
+
+    The simulation advances time_scale days for every real second
+    (1x = 1 day/s, so Earth orbits the Sun in about 6 minutes).
+    """
+    def amount(value, unit):
+        text = f"{value:.3g}"
+        return f"Speed: {text} {unit if text == '1' else unit + 's'}/s"
+
+    days = time_scale
+    if days < 1.0:
+        return amount(days * 24, "hour")
+    if days < 365.25:
+        return amount(days, "day")
+    return amount(days / 365.25, "year")
 from panda3d.core import TextNode
 
 
@@ -39,7 +57,7 @@ class ControlPanel:
 
         # Time scale slider
         self.time_label = DirectLabel(
-            text="Time Scale: 1.0x",
+            text=format_time_rate(1.0),
             scale=0.045,
             pos=(0, 0, 0.35),
             parent=self.panel,
@@ -191,7 +209,7 @@ class ControlPanel:
         """Handle time scale slider change"""
         value = self.time_slider['value']
         self.app.time_scale = value
-        self.time_label['text'] = f"Time Scale: {value:.1f}x"
+        self.time_label['text'] = format_time_rate(value)
 
     def on_size_scale_changed(self):
         """Handle size scale slider change"""
