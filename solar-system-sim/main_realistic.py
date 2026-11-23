@@ -606,7 +606,7 @@ class RealisticSolarSystemApp(ShowBase):
 
     def change_time_scale(self, factor):
         """Speed time up or down (keyboard + / -), keeping the slider and label in sync"""
-        self.time_scale = min(1000.0, max(0.1, self.time_scale * factor))
+        self.time_scale = min(1000.0, max(0.01, self.time_scale * factor))
         if self.control_panel:
             # Moving the slider runs on_time_scale_changed, which updates the label
             self.control_panel.time_slider['value'] = self.time_scale

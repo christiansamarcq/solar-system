@@ -16,7 +16,8 @@ def format_time_rate(time_scale):
         text = f"{value:.3g}"
         return f"Speed: {text} {unit if text == '1' else unit + 's'}/s"
 
-    days = time_scale
+    # Round off slider float error (e.g. 0.9999999 should read as 1 day/s)
+    days = float(f"{time_scale:.6g}")
     if days < 1.0:
         return amount(days * 24, "hour")
     if days < 365.25:
@@ -66,7 +67,7 @@ class ControlPanel:
         )
 
         self.time_slider = DirectSlider(
-            range=(0.1, 1000.0),
+            range=(0.01, 1000.0),  # 0.01 day/s = 0.24 hours/s ... 1000 days/s = 2.74 years/s
             value=1.0,
             pageSize=1.0,
             command=self.on_time_scale_changed,
