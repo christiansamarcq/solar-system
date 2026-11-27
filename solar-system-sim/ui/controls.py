@@ -14,7 +14,7 @@ def format_time_rate(time_scale):
     """
     def amount(value, unit):
         text = f"{value:.3g}"
-        return f"Speed: {text} {unit if text == '1' else unit + 's'}/s"
+        return f"Time Scale: {text} {unit if text == '1' else unit + 's'}/s"
 
     # Round off slider float error (e.g. 0.9999999 should read as 1 day/s)
     days = float(f"{time_scale:.6g}")
