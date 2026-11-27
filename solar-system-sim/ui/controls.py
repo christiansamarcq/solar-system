@@ -3,23 +3,33 @@ UI controls using Panda3D's DirectGUI
 Provides sliders and buttons for parameter adjustment
 """
 
+import math
 from direct.gui.DirectGui import DirectSlider, DirectButton, DirectLabel, DirectFrame, DGG
+
+# Time scale = simulated days per real second (1.0 = 1 day/s, Earth year ~6 min)
+MIN_TIME_SCALE = 1.0 / 86400.0   # real time: 1 simulated second per real second
+MAX_TIME_SCALE = 1000.0          # 2.74 simulated years per real second
 
 
 def format_time_rate(time_scale):
-    """Describe a time scale as simulated time per real second.
-
-    The simulation advances time_scale days for every real second
-    (1x = 1 day/s, so Earth orbits the Sun in about 6 minutes).
+    """Describe a time scale as simulated time per real second,
+    e.g. "Time Scale: real time", "Time Scale: 5 minutes/s", "Time Scale: 1 day/s".
     """
     def amount(value, unit):
         text = f"{value:.3g}"
         return f"Time Scale: {text} {unit if text == '1' else unit + 's'}/s"
 
     # Round off slider float error (e.g. 0.9999999 should read as 1 day/s)
-    days = float(f"{time_scale:.6g}")
-    if days < 1.0:
-        return amount(days * 24, "hour")
+    seconds = float(f"{time_scale * 86400.0:.6g}")
+    if seconds <= 1.0:
+        return "Time Scale: real time (1 sec/s)"
+    if seconds < 60:
+        return amount(seconds, "second")
+    if seconds < 3600:
+        return amount(seconds / 60, "minute")
+    if seconds < 86400:
+        return amount(seconds / 3600, "hour")
+    days = seconds / 86400
     if days < 365.25:
         return amount(days, "day")
     return amount(days / 365.25, "year")
@@ -66,10 +76,12 @@ class ControlPanel:
             frameColor=(0, 0, 0, 0)
         )
 
+        # Logarithmic slider: it holds log10(time scale), so every tenth of its
+        # length is a 10x jump, from real time up to 2.74 years/s
         self.time_slider = DirectSlider(
-            range=(0.01, 1000.0),  # 0.01 day/s = 0.24 hours/s ... 1000 days/s = 2.74 years/s
-            value=1.0,
-            pageSize=1.0,
+            range=(math.log10(MIN_TIME_SCALE), math.log10(MAX_TIME_SCALE)),
+            value=0.0,             # log10(1) = 1 day/s
+            pageSize=0.5,
             command=self.on_time_scale_changed,
             pos=(0, 0, 0.28),
             parent=self.panel,
@@ -208,9 +220,13 @@ class ControlPanel:
 
     def on_time_scale_changed(self):
         """Handle time scale slider change"""
-        value = self.time_slider['value']
+        value = 10 ** self.time_slider['value']
         self.app.time_scale = value
         self.time_label['text'] = format_time_rate(value)
+
+    def set_time_scale(self, time_scale):
+        """Move the (logarithmic) slider to a time scale; its callback updates the label"""
+        self.time_slider['value'] = math.log10(time_scale)
 
     def on_size_scale_changed(self):
         """Handle size scale slider change"""

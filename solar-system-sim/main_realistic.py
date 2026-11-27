@@ -12,7 +12,7 @@ import math
 from celestial_body import CelestialBody, create_sphere_geometry
 from physics import nbody
 from rendering.trail_renderer import TrailManager
-from ui.controls import ControlPanel, format_time_rate
+from ui.controls import ControlPanel, format_time_rate, MIN_TIME_SCALE, MAX_TIME_SCALE
 import realistic_data as rd
 
 
@@ -95,7 +95,7 @@ class RealisticSolarSystemApp(ShowBase):
         print()
         print("SIMULATION CONTROLS:")
         print("  Space               - Pause/Unpause")
-        print("  + / -               - Speed up / slow down time (starts at 1 day per second)")
+        print("  + / -               - Speed up / slow down time (1 day/s at start, down to real time)")
         print("  M                   - Toggle physics mode (SIMPLE/N-BODY)")
         print("  T                   - Toggle orbital trails")
         print("  C                   - Clear trails")
@@ -606,10 +606,9 @@ class RealisticSolarSystemApp(ShowBase):
 
     def change_time_scale(self, factor):
         """Speed time up or down (keyboard + / -), keeping the slider and label in sync"""
-        self.time_scale = min(1000.0, max(0.01, self.time_scale * factor))
+        self.time_scale = min(MAX_TIME_SCALE, max(MIN_TIME_SCALE, self.time_scale * factor))
         if self.control_panel:
-            # Moving the slider runs on_time_scale_changed, which updates the label
-            self.control_panel.time_slider['value'] = self.time_scale
+            self.control_panel.set_time_scale(self.time_scale)
         print(format_time_rate(self.time_scale))
 
     def toggle_pause(self):
@@ -696,7 +695,7 @@ class RealisticSolarSystemApp(ShowBase):
 
         # Update control panel sliders to default values
         if self.control_panel:
-            self.control_panel.time_slider['value'] = 1.0  # also updates the speed label
+            self.control_panel.set_time_scale(1.0)  # also updates the label
             self.control_panel.size_slider['value'] = 1.0
             self.control_panel.size_label['text'] = "Planet Size: 1.0x"
             self.control_panel.sun_rate_slider['value'] = 1.0
